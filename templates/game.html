@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rounding Game</title>
+    <!-- Font Awesome removed (blocked by browser). Using Unicode arrows and emojis instead. -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+            background-color: #f5f5f5;
+        }
+        .history {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+        }
+        .history-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 8px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .history-number {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .history-answer {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #7f8c8d;
+        }
+        .history-result {
+            font-size: 1.2em;
+        }
+        .history-result.correct {
+            color: #2ecc71;
+        }
+        .history-result.incorrect {
+            color: #e74c3c;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 1.2em;
+        }
+        .game-box {
+            border: 1px solid #ddd;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 20px 0;
+            background-color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .number-display {
+            font-size: 72px;
+            font-weight: bold;
+            margin: 30px 0;
+            color: #2c3e50;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .answer-buttons {
+            margin: 30px 0;
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+        }
+        .btn {
+            padding: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            border: none;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        .btn-up {
+            background-color: #cc822e;
+            color: white;
+        }
+        .btn-down {
+            background-color: #613ce7;
+            color: white;
+        }
+        .btn:hover {
+            transform: scale(1.1);
+        }
+        .btn-up:hover {
+            background-color: #cc822e;
+        }
+        .btn-down:hover {
+            background-color: #613ce7;
+        }
+        .factor-btn {
+            opacity: 0.95;
+            transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+        }
+        .factor-btn.selected {
+            box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+            transform: translateY(-3px);
+            opacity: 1;
+        }
+        .score {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px 0;
+            color: #34495e;
+        }
+        .feedback {
+            font-size: 48px;
+            margin: 20px 0;
+            animation: fadeIn 0.5s;
+        }
+        .feedback.correct {
+            color: #2ecc71;
+        }
+        .feedback.incorrect {
+            color: #e74c3c;
+        }
+        .round-info {
+            font-size: 1.2em;
+            color: #7f8c8d;
+            margin: 10px 0;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .start-btn {
+            padding: 15px 30px;
+            font-size: 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .start-btn:hover {
+            background-color: #2980b9;
+        }
+        /* CSS for the highly visible selected button */
+        .factor-btn.selected {
+            /* Add a transition for a smooth visual effect */
+            transition: all 0.2s ease-in-out; 
+            
+            /* 1. High-Contrast Border & Box Shadow */
+            /* Adds a glowing effect around the selected button (bright yellow/gold) */
+            box-shadow: 0 0 15px 5px rgba(255, 0, 0, 0.8) !important;
+            
+            /* Optional: Thicker border for more emphasis */
+            border-width: 4px !important; 
+            border-color: #ff0000 !important; /* Bright yellow border */
+            
+            /* 2. Scale Transformation */
+            /* Makes the button slightly larger to stand out */
+            transform: scale(1.28); 
+            
+            /* 3. Text Change (Optional but helps) */
+            /* Ensures the text is visible against the glow if needed */
+            font-weight: bold !important; 
+        }
+    </style>
+</head>
+<body>
+    <!-- TEMPLATE MARKER and SIMPLE TEST BLOCK (hidden by default unless show_debug=true) -->
+    <div id="template-marker" style="{% if not show_debug %}display:none;{% endif %}background:#d4edda;color:#155724;padding:6px;border-radius:6px;margin-bottom:10px;">TEMPLATE MARKER: game.html v4</div>
+
+    <div id="simple-test-block" style="{% if not show_debug %}display:none;{% endif %}background:#e6f7ff;color:#0c5460;padding:8px;border-radius:6px;margin-bottom:10px;"> 
+        TEST BLOCK: session.current_number='{{ session.get('current_number') }}' | messages_len='{{ messages|length }}' | history_len='{{ session.get('history')|length }}' |first_msg='{{ messages[0] if messages|length>0 else '' }}' | game_active='{{ game_active }}' | game_over='{{ game_over }}'
+    </div>
+
+    <!-- ALWAYS-VISIBLE FLEX ROW: shows session current_number centrally (debugging aid) -->
+    {% if False and game_active and not game_over %}
+    <div id="always-show-row" style="display:flex;align-items:center;justify-content:center;gap:40px;margin:12px 0;position:relative;z-index:9999;">
+        <div role="button" tabindex="0" onclick="postAnswer('up')" onkeydown="if(event.key==='Enter'||event.key===' ')postAnswer('up')" style="width:90px;height:90px;border-radius:50%;background:#cc822e;display:flex;align-items:center;justify-content:center;color:white;font-size:36px;pointer-events:auto;cursor:pointer;position:relative;z-index:9999;">▲</div>
+        <div style="font-size:84px;font-weight:bold;color:#2c3e50;">{{ session.get('current_number') }}</div>
+        <div role="button" tabindex="0" onclick="postAnswer('down')" onkeydown="if(event.key==='Enter'||event.key===' ')postAnswer('down')" style="width:90px;height:90px;border-radius:50%;background:#613ce7;display:flex;align-items:center;justify-content:center;color:white;font-size:36px;pointer-events:auto;cursor:pointer;position:relative;z-index:9999;">▼</div>
+    </div>
+    {% endif %}
+
+    <div class="game-box">
+        {# Render round info and explanation above the large number/arrows row #}
+        {% if game_active %}
+            {# Round info is normally the first message #}
+            {% if messages|length > 0 %}
+                <div class="round-info">{{ messages[0] }}</div>
+            {% endif %}
+
+            <!-- DEBUG BLOCK: hidden by default unless show_debug is true -->
+            <div style="{% if not show_debug %}display:none;{% endif %}background:#fff3cd; color:#856404; padding:8px; border-radius:6px; margin:12px 0;">
+                DEBUG: current_number='{{ session.get('current_number') }}' | game_active='{{ game_active }}' | game_over='{{ game_over }}'
+            </div>
+
+            {# Show the arrow buttons and large number whenever we have a center_number (helps when game_active flag is inconsistent) #}
+            <div id="interactive-row" style="display: flex; align-items: center; justify-content: center; gap: 60px; margin: 20px 0 10px 0;">
+                <button id="interactive-up" data-answer="up" class="btn btn-up" style="height: 110px; width: 110px; font-size: 56px;">
+                    &#9650;
+                </button>
+                <div class="number-display" style="font-size: 120px; min-width: 220px; margin: 0 20px;">{{ session.get('current_number') }}</div>
+                <button id="interactive-down" data-answer="down" class="btn btn-down" style="height: 110px; width: 110px; font-size: 56px;">
+                    &#9660;
+                </button>
+            </div>
+
+            {% for message in messages %}
+                {% if loop.index0 > 1 %}
+                    <div class="message">{{ message }}</div>
+                {% endif %}
+            {% endfor %}
+
+        {% else %}
+            {% set prev_rounds = session.game_state.get('rounds', 10) %}
+            {% set prev_max_number = session.game_state.get('max_number', 100) %}
+            {% set prev_factor = session.game_state.get('factor', 10) %}
+
+            <!-- DEBUG BLOCK: hidden by default unless show_debug is true -->
+            <div style="{% if not show_debug %}display:none;{% endif %}background:#fff3cd; color:#856404; padding:8px; border-radius:6px; margin:12px 0;">
+                DEBUG: current_number='{{ session.get('current_number') }}' | prev_rounds='{{ prev_rounds }}' | prev_max_number='{{ prev_max_number }}' | prev_factor='{{ prev_factor }}'
+            </div>
+
+            <form method="POST" style="margin-top: 30px;">
+                <div style="margin-bottom: 18px; font-size:18px; display:flex; flex-direction:column; gap:14px; align-items:center;">
+                    <div style="width:100%; text-align:center;">
+                        <div style="font-weight:600; margin-bottom:8px;">Factor</div>
+                        <div class="touch-toggle" style="display:inline-flex; gap:12px;">
+                            <input type="hidden" id="factor" name="factor" value="{{ prev_factor }}">
+                            
+                            <button type="button" data-value="5" class="factor-btn selected" style="padding:12px 20px; font-size:20px; border-radius:10px; border:2px solid #cc822e; background:#cc822e; color:#fff; min-width:90px;">5</button>
+                            
+                            <button type="button" data-value="10" class="factor-btn" style="padding:12px 20px; font-size:20px; border-radius:10px; border:2px solid #613ce7; background:#613ce7; color:#fff; min-width:90px;">10</button>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:18px; align-items:center;">
+                        <div style="text-align:center;">
+                            <div style="font-weight:600; margin-bottom:6px;">Rounds</div>
+                            <div class="touch-stepper" style="display:flex; gap:8px; align-items:center;">
+                                <button type="button" class="step-minus" style="font-size:22px; padding:8px 12px; border-radius:8px;">−</button>
+                                <input type="number" id="rounds" name="rounds" min="1" value="{{ prev_rounds }}" style="width:84px; font-size:20px; padding:8px; text-align:center;">
+                                <button type="button" class="step-plus" style="font-size:22px; padding:8px 12px; border-radius:8px;">+</button>
+                            </div>
+                        </div>
+
+                        <div style="text-align:center;">
+                            <div style="font-weight:600; margin-bottom:6px;">Max Number</div>
+                            <div class="touch-stepper" style="display:flex; gap:8px; align-items:center;">
+                                <button type="button" class="max-minus" style="font-size:22px; padding:8px 12px; border-radius:8px;">−</button>
+                                <input type="number" id="max_number" name="max_number" min="1" value="{{ prev_max_number }}" style="width:100px; font-size:20px; padding:8px; text-align:center;">
+                                <button type="button" class="max-plus" style="font-size:22px; padding:8px 12px; border-radius:8px;">+</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" name="action" value="start_game" class="start-btn" style="font-size:20px; padding:14px 28px;">Start Game</button>
+            </form>
+            </div>
+        {% endif %}
+        {% if session.game_state.get('current_round') > 0 %}
+            <div class="score-item">
+                <div class="number-display" style="font-size: 60px; min-width: 220px; margin: 0 20px;">Score: {{ session.game_state.get('score') }} / {{ session.game_state.get('current_round') }}</div>
+            </div>
+        {% endif %}
+        {% for entry in session.history %}
+            <div class="history-item">
+                <span class="history-number">{{ entry.number }}</span>
+                <span class="history-answer">
+                    {% if entry.answer == 'up' %}
+                        &#9650; Up
+                    {% else %}
+                        &#9660; Down
+                    {% endif %}
+                </span>
+                <span class="history-result {{ 'correct' if entry.is_correct else 'incorrect' }}">
+                    {% if entry.is_correct %}
+                        👍
+                    {% else %}
+                        👎
+                    {% endif %}
+                </span>
+            </div>
+        {% endfor %}
+        {% if game_active %}
+            <div class="restart_game">
+                <form method="POST" style="margin-top: 30px;">
+                    <button type="submit" name="action" value="restart" class="start-btn" style="font-size:20px; padding:14px 28px;">Restart Game</button>
+                </form>
+            </div>
+        {% endif %}
+    </div>
+    
+    <script>
+        // JS handler to submit answer via POST when interactive buttons are clicked
+        function postAnswer(ans) {
+            const f = document.createElement('form');
+            f.method = 'POST';
+            f.style.display = 'none';
+            const input = document.createElement('input');
+            input.name = 'answer';
+            input.value = ans;
+            f.appendChild(input);
+            document.body.appendChild(f);
+            f.submit();
+        }
+        document.addEventListener('DOMContentLoaded', function(){
+            const up = document.getElementById('interactive-up');
+            const down = document.getElementById('interactive-down');
+            if (up) up.addEventListener('click', function(){ postAnswer('up'); });
+            if (down) down.addEventListener('click', function(){ postAnswer('down'); });
+        });
+        // Touch-friendly controls: factor buttons and steppers
+        document.addEventListener('DOMContentLoaded', function(){
+            // Factor buttons
+            const factorHidden = document.getElementById('factor');
+            const factorBtns = document.querySelectorAll('.factor-btn');
+            // initialize selection from hidden input value
+            factorBtns.forEach(btn => {
+                const val = btn.getAttribute('data-value');
+                if (factorHidden && factorHidden.value === val) {
+                    btn.classList.add('selected');
+                } else {
+                    btn.classList.remove('selected');
+                }
+                btn.addEventListener('click', function(){
+                    factorBtns.forEach(b=>b.classList.remove('selected'));
+                    this.classList.add('selected');
+                    if (factorHidden) factorHidden.value = this.getAttribute('data-value');
+                });
+            });
+
+            // Rounds stepper
+            const roundsInput = document.getElementById('rounds');
+            const minus = document.querySelector('.step-minus');
+            const plus = document.querySelector('.step-plus');
+            if (minus) minus.addEventListener('click', ()=>{ if(roundsInput && Number(roundsInput.value) > 1) roundsInput.value = Number(roundsInput.value)-1; });
+            if (plus) plus.addEventListener('click', ()=>{ if(roundsInput) roundsInput.value = Number(roundsInput.value)+1; });
+
+            // Max number stepper
+            const maxInput = document.getElementById('max_number');
+            const maxMinus = document.querySelector('.max-minus');
+            const maxPlus = document.querySelector('.max-plus');
+            if (maxMinus) maxMinus.addEventListener('click', ()=>{ if(maxInput && Number(maxInput.value) > 1) maxInput.value = Number(maxInput.value)-1; });
+            if (maxPlus) maxPlus.addEventListener('click', ()=>{ if(maxInput) maxInput.value = Number(maxInput.value)+1; });
+        });
+    </script>
+</body>
+</html>
