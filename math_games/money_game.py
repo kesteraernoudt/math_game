@@ -1,5 +1,6 @@
 """Money game where players build payments with $20, $5, and $1 bills."""
 import random
+import math
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, Tuple
 from datetime import datetime
@@ -62,6 +63,12 @@ class MoneyGameEngine(BaseGameEngine):
             {"name": "BBQ Feast", "min_price": 28, "max_price": 65, "color": "#ea580c", "emoji": "🍖"},
             {"name": "Grocery Cart", "min_price": 25, "max_price": 70, "color": "#059669", "emoji": "🛒"},
             {"name": "Picnic Pack", "min_price": 15, "max_price": 40, "color": "#4f46e5", "emoji": "🧺"},
+            {"name": "Veggie Burger", "min_price": 7, "max_price": 16, "color": "#3b8c5a", "emoji": "🥗"},
+            {"name": "Falafel Wrap", "min_price": 6, "max_price": 15, "color": "#2f855a", "emoji": "🥙"},
+            {"name": "Tofu Stir Fry", "min_price": 10, "max_price": 22, "color": "#14b8a6", "emoji": "🍲"},
+            {"name": "Veggie Sushi Roll", "min_price": 8, "max_price": 18, "color": "#0ea5e9", "emoji": "🥒"},
+            {"name": "Caprese Salad", "min_price": 6, "max_price": 14, "color": "#ef4444", "emoji": "🥬"},
+            {"name": "Mediterranean Bowl", "min_price": 12, "max_price": 26, "color": "#f59e0b", "emoji": "🥗"},
         ]
         random.seed(datetime.now().timestamp())
 
@@ -91,13 +98,18 @@ class MoneyGameEngine(BaseGameEngine):
         self._item_name = item["name"]
         self._item_price = self._choose_price(item)
         self._tax_amount = round(self._item_price * self.tax_rate) if self.show_tax else 0
-        self._total_due = self._item_price + self._tax_amount
+        if self.show_tax:
+            raw_tax = self._item_price * self.tax_rate
+            self._tax_amount = round(raw_tax, 2)
+        else:
+            self._tax_amount = 0.0
+        self._total_due = round(self._item_price + self._tax_amount, 2)
         self._item_image = self._build_item_image(item["name"], item["color"], item["emoji"])
         self._awaiting_retry = False
 
-    def _best_combo(self, amount: int) -> Dict[int, int]:
-        """Return the optimal bill breakdown for a whole-dollar amount."""
-        remaining = amount
+    def _best_combo(self, amount: float) -> Dict[int, int]:
+        """Return the optimal bill breakdown for paying at least the amount (ceiled)."""
+        remaining = math.ceil(amount)
         twenties = remaining // 20
         remaining = remaining % 20
         tens = remaining // 10
@@ -159,15 +171,22 @@ class MoneyGameEngine(BaseGameEngine):
         if not self._item_name:
             raise ValueError("No active round in progress")
         counts = self._parse_answer(answer)
-        user_total = counts[20] * 20 + counts[5] * 5 + counts[1] * 1
+        user_total = (
+            counts[20] * 20
+            + counts[10] * 10
+            + counts[5] * 5
+            + counts[1] * 1
+        )
+        pay_total = math.ceil(self._total_due)
         best_combo = self._best_combo(self._total_due)
-        is_correct = user_total == self._total_due and counts == best_combo
+        is_correct = user_total == pay_total and counts == best_combo
 
         self._last_result = {
             "counts": counts,
             "best_combo": best_combo,
             "user_total": user_total,
             "total_due": self._total_due,
+            "pay_total": pay_total,
         }
 
         if is_correct:

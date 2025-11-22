@@ -78,17 +78,29 @@ class MoneyGameHandler(BaseGameHandler):
             best_combo = last_result.get("best_combo", {})
             user_total = last_result.get("user_total")
             total_due = last_result.get("total_due")
+            pay_total = last_result.get("pay_total", total_due)
+            change = user_total - pay_total
             ui._messages.append(
-                f"You used ${user_total} with {counts.get(20,0)}x$20, {counts.get(5,0)}x$5, {counts.get(1,0)}x$1."
+                f"You used ${user_total} with {counts.get(20,0)}x$20, {counts.get(10,0)}x$10, {counts.get(5,0)}x$5, {counts.get(1,0)}x$1."
             )
             ui._messages.append(
-                f"Best is ${total_due} with {best_combo.get(20,0)}x$20, {best_combo.get(5,0)}x$5, {best_combo.get(1,0)}x$1."
+                f"Best is ${pay_total} with {best_combo.get(20,0)}x$20, {best_combo.get(10,0)}x$10, {best_combo.get(5,0)}x$5, {best_combo.get(1,0)}x$1."
             )
+            if change > 0:
+                ui._messages.append(f"Change back: ${round(change, 2)}")
     
     def handle_skip_round(self, game_state: Dict[str, Any]) -> None:
         """Skip the current round and update session state."""
         if "history" not in session:
             session["history"] = []
+        # Clear retry state explicitly
+        game_state["awaiting_retry"] = False
+        if hasattr(self.engine, "_awaiting_retry"):
+            self.engine._awaiting_retry = False
+        session["last_answer"] = None
+        # Clear any last result so we don't show stale messages
+        if hasattr(self.engine, "_last_result"):
+            self.engine._last_result = {}
         session["history"].append(
             {
                 "item_name": game_state.get("item_name", ""),
@@ -113,4 +125,5 @@ class MoneyGameHandler(BaseGameHandler):
         else:
             game_state["active"] = True
             self.save_state_to_session(game_state, new_state)
+            game_state["awaiting_retry"] = False
         session["games"][self.game_id] = game_state

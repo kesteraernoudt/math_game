@@ -68,9 +68,10 @@
         }
         .grid {
             display: grid;
-            grid-template-columns: 1.1fr 0.9fr;
-            gap: 12px;
+            grid-template-columns: minmax(360px, 1fr) minmax(360px, 1fr);
+            gap: 16px;
             margin-top: 10px;
+            align-items: start;
         }
         .item-card {
             position: relative;
@@ -311,58 +312,55 @@
 
                 <div class="grid">
                     <div>
-                        <div class="item-card">
-                            <img src="{{ game_data.get('item_image') }}" alt="Item image" style="max-height:320px; object-fit:contain;">
-                        </div>
-                        <div class="item-meta">
-                            <div class="pill">
-                                <span class="label">Item</span>
-                                <span>{{ game_data.get('item_name','') }}</span>
+                        <div style="display:grid; grid-template-columns: minmax(260px, 1.2fr) minmax(220px, 0.8fr); gap:18px; align-items:start;">
+                            <div class="item-card">
+                                <img src="{{ game_data.get('item_image') }}" alt="Item image" style="max-height:320px; object-fit:contain; width:100%;">
                             </div>
-                            <div class="pill">
-                                <span class="label">Price</span>
-                                <span>${{ game_data.get('item_price', 0) }}</span>
-                            </div>
-                            {% if game_data.get('show_tax', True) %}
-                                <div class="pill">
-                                    <span class="label">Sales Tax ({{ (game_data.get('tax_rate', default_config.get('tax_rate', 0.08)) * 100)|round(1) }}%)</span>
-                                    <span>${{ game_data.get('tax_amount', 0) }}</span>
+                            <div style="display:flex; flex-direction:column; gap:12px;">
+                                <div>
+                                    <div style="font-size: 42px; font-weight: 900;">${{ game_data.get('item_price', 0) }}</div>
+                                    {% if game_data.get('show_tax', True) %}
+                                        {% set tax_rate_val = game_data.get('tax_rate', default_config.get('tax_rate', 0.08)) %}
+                                        {% set tax_amount_val = game_data.get('tax_amount', 0) %}
+                                        {% set tax_display = ('%.2f' % tax_amount_val) %}
+                                        {% set rate_display = ('%.2f' % (tax_rate_val * 100)) %}
+                                        <div style="font-size: 16px; color: var(--muted); margin-top:4px;">Tax {{ rate_display }}%: ${{ tax_display }}</div>
+                                    {% endif %}
                                 </div>
-                            {% endif %}
-                            <div class="pill total-due">
-                                <span class="label">Total Due</span>
-                                <span>${{ game_data.get('total_due', 0) }}</span>
+                                <div class="pill total-due" style="background: linear-gradient(135deg, #eab308, #f59e0b); color: #0f172a; border: none; font-size: 20px; padding:12px 16px; box-shadow: 0 8px 14px rgba(0,0,0,0.25); justify-content:space-between;">
+                                    <span class="label" style="color:#0f172a;">Total Due</span>
+                                    <span style="font-weight:900;">${{ '%.2f' % game_data.get('total_due', 0) }}</span>
+                                </div>
+                                <div class="totals" style="width:100%; display:flex; flex-direction:column; gap:10px;">
+                                    <div class="pill">
+                                        <span class="label">You selected</span>
+                                        <span id="selected-total">$0</span>
+                                    </div>
+                                    <div class="pill">
+                                        <span class="label">Difference</span>
+                                        <span id="delta" class="delta bad">$0</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-                        <div class="totals" style="margin-top:12px;">
-                            <div class="pill">
-                                <span class="label">You selected</span>
-                                <span id="selected-total">$0</span>
-                            </div>
-                            <div class="pill">
-                                <span class="label">Needed</span>
-                                <span>${{ game_data.get('total_due', 0) }}</span>
-                            </div>
-                            <div class="pill">
-                                <span class="label">Difference</span>
-                                <span id="delta" class="delta bad">$0</span>
-                            </div>
-                        </div>
-                        <div class="actions">
-                            <button form="money-form" type="submit" class="btn btn-primary" aria-label="Submit payment">Submit payment</button>
-                            <button type="button" id="clear-btn" class="btn btn-ghost" aria-label="Clear bills">Clear bills</button>
-                            <button form="money-form" type="submit" name="action" value="skip_round" class="btn btn-ghost" aria-label="Skip item">Skip item</button>
-                            <button form="money-form" type="submit" name="action" value="restart" class="btn btn-danger" aria-label="Restart game">Restart</button>
+                        <div class="actions" style="margin-top:12px; display:grid; gap:10px; grid-template-columns: repeat(2, minmax(180px, 1fr)); width:100%;">
+                            <button form="money-form" type="submit" class="btn btn-primary" aria-label="Submit payment" style="font-size:18px;">Submit payment</button>
+                            <button type="button" id="clear-btn" class="btn btn-ghost" aria-label="Clear bills" style="font-size:16px;">Clear bills</button>
+                            <form method="POST" style="display:inline;" aria-label="Skip item">
+                                <button type="submit" name="action" value="skip_round" class="btn btn-ghost" style="font-size:16px;">Skip item</button>
+                            </form>
+                            <form method="POST" style="display:inline;" aria-label="Restart game">
+                                <button type="submit" name="action" value="restart" class="btn btn-danger" style="font-size:16px;">Restart</button>
+                            </form>
                         </div>
                         {% if messages %}
-                            <div class="messages">
+                            <div class="messages" style="margin-top:12px;">
                                 {% for m in messages %}
                                     <div class="msg {% if 'Correct' in m %}correct{% elif 'Incorrect' in m %}incorrect{% endif %}">{{ m }}</div>
                                 {% endfor %}
                             </div>
-                        {% elif game_data.get('awaiting_retry') %}
-                            <div class="messages">
+                        {% elif game_data.get('awaiting_retry') and not (session.history and session.history[-1].get('skipped')) %}
+                            <div class="messages" style="margin-top:12px;">
                                 <div class="msg incorrect">Try again with fewer bills. Aim for the smallest stack that hits the total.</div>
                             </div>
                         {% endif %}
@@ -370,8 +368,8 @@
 
                     <div>
                         <form method="POST" id="money-form">
-                            <input type="hidden" name="answer" id="answer-field" value="20:0,5:0,1:0">
-                            <div class="bills">
+                            <input type="hidden" name="answer" id="answer-field" value="20:0,10:0,5:0,1:0">
+                            <div class="bills" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
                                 {% for denom, img in {20:'/static/bills/20.jpg',10:'/static/bills/10.jpg',5:'/static/bills/5.jpg',1:'/static/bills/1.jpg'}.items() %}
                                 <div class="bill-card" data-denom="{{ denom }}">
                                     <div class="stack-row">
@@ -476,6 +474,14 @@
                 <form method="POST">
                     <div class="config-grid">
                         <div>
+                            <label for="show_tax">Display sales tax?</label>
+                            <select id="show_tax" name="show_tax">
+                                {% set show_tax_val = game_config.get('show_tax', default_config.get('show_tax', True)) %}
+                                <option value="true" {% if show_tax_val %}selected{% endif %}>Yes</option>
+                                <option value="false" {% if not show_tax_val %}selected{% endif %}>No</option>
+                            </select>
+                        </div>
+                        <div>
                             <label for="rounds">Rounds</label>
                             <input type="number" id="rounds" name="rounds" min="1" value="{{ game_config.get('rounds', default_config.get('rounds', 8)) }}" required>
                         </div>
@@ -483,17 +489,9 @@
                             <label for="max_price">Max item price</label>
                             <input type="number" id="max_price" name="max_price" min="1" value="{{ game_config.get('max_price', default_config.get('max_price', 50)) }}" required>
                         </div>
-                        <div>
+                        <div id="tax_rate_wrap">
                             <label for="tax_rate">Sales tax rate</label>
-                            <input type="number" step="0.01" min="0" id="tax_rate" name="tax_rate" value="{{ game_config.get('tax_rate', default_config.get('tax_rate', 0.08)) }}">
-                        </div>
-                        <div>
-                            <label for="show_tax">Display sales tax?</label>
-                            <select id="show_tax" name="show_tax">
-                                {% set show_tax_val = game_config.get('show_tax', default_config.get('show_tax', True)) %}
-                                <option value="true" {% if show_tax_val %}selected{% endif %}>Yes</option>
-                                <option value="false" {% if not show_tax_val %}selected{% endif %}>No</option>
-                            </select>
+                            <input type="number" step="0.00001" min="0" id="tax_rate" name="tax_rate" value="{{ game_config.get('tax_rate', default_config.get('tax_rate', 0.08)) }}">
                         </div>
                     </div>
                     <div class="actions" style="margin-top:16px;">
@@ -510,7 +508,7 @@
             const answerField = document.getElementById('answer-field');
             const selectedTotal = document.getElementById('selected-total');
             const deltaEl = document.getElementById('delta');
-            const needed = {{ session.games[game_id].get('total_due', 0) if game_active else 0 }};
+            const needed = parseFloat('{{ "%.2f"|format(session.games[game_id].get("total_due", 0) if game_active else 0) }}');
 
             function syncAnswer() {
                 if (answerField) {
@@ -522,8 +520,9 @@
                 const total = counts[20]*20 + counts[10]*10 + counts[5]*5 + counts[1];
                 if (selectedTotal) selectedTotal.textContent = `$${total}`;
                 if (deltaEl) {
-                    const delta = total - needed;
-                    deltaEl.textContent = `${delta >= 0 ? '+' : ''}$${delta}`;
+                    const delta = total - Math.ceil(needed);
+                    const displayDelta = Math.round(delta * 100) / 100;
+                    deltaEl.textContent = `${displayDelta >= 0 ? '+' : ''}$${displayDelta.toFixed(2)}`;
                     deltaEl.className = delta === 0 ? 'delta ok' : 'delta bad';
                 }
                 document.querySelectorAll('[data-count]').forEach(el => {
@@ -621,10 +620,21 @@
             if (clearBtn) {
                 clearBtn.addEventListener('click', (e) => {
                     e.preventDefault();
-                    counts[20] = counts[5] = counts[1] = 0;
+                    counts[20] = counts[10] = counts[5] = counts[1] = 0;
                     renderStacks();
                     updateTotals();
                 });
+            }
+
+            // Show/hide tax rate input based on dropdown in config
+            const showTaxSel = document.getElementById('show_tax');
+            const taxWrap = document.getElementById('tax_rate_wrap');
+            if (showTaxSel && taxWrap) {
+                const syncTax = () => {
+                    taxWrap.style.display = (showTaxSel.value === 'true') ? 'block' : 'none';
+                };
+                showTaxSel.addEventListener('change', syncTax);
+                syncTax();
             }
 
             renderStacks();
