@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Rounding Game</title>
+    <title>{{ game_info.name if game_info else 'Math Game' }}</title>
     <!-- Font Awesome removed (blocked by browser). Using Unicode arrows and emojis instead. -->
     <style>
         body {
@@ -177,9 +177,26 @@
             /* Ensures the text is visible against the glow if needed */
             font-weight: bold !important; 
         }
+        .nav-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            background-color: #95a5a6;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: background-color 0.2s;
+        }
+        .nav-link:hover {
+            background-color: #7f8c8d;
+        }
     </style>
 </head>
 <body>
+    <!-- Navigation -->
+    <div style="text-align: left; margin-bottom: 20px;">
+        <a href="{{ url_for('index') }}" class="nav-link">← Back to Games</a>
+    </div>
     <!-- TEMPLATE MARKER and SIMPLE TEST BLOCK (hidden by default unless show_debug=true) -->
     <div id="template-marker" style="{% if not show_debug %}display:none;{% endif %}background:#d4edda;color:#155724;padding:6px;border-radius:6px;margin-bottom:10px;">TEMPLATE MARKER: game.html v4</div>
 
@@ -227,55 +244,60 @@
             {% endfor %}
 
         {% else %}
-            {% set prev_rounds = session.game_state.get('rounds', 10) %}
-            {% set prev_max_number = session.game_state.get('max_number', 100) %}
-            {% set prev_factor = session.game_state.get('factor', 10) %}
+            {% set prev_config = game_config %}
+            {% set default_config = default_config %}
 
             <!-- DEBUG BLOCK: hidden by default unless show_debug is true -->
             <div style="{% if not show_debug %}display:none;{% endif %}background:#fff3cd; color:#856404; padding:8px; border-radius:6px; margin:12px 0;">
-                DEBUG: current_number='{{ session.get('current_number') }}' | prev_rounds='{{ prev_rounds }}' | prev_max_number='{{ prev_max_number }}' | prev_factor='{{ prev_factor }}'
+                DEBUG: current_number='{{ session.get('current_number') }}' | game_config='{{ prev_config }}' | default_config='{{ default_config }}'
             </div>
 
             <form method="POST" style="margin-top: 30px;">
                 <div style="margin-bottom: 18px; font-size:18px; display:flex; flex-direction:column; gap:14px; align-items:center;">
+                    {% if 'factor' in default_config %}
                     <div style="width:100%; text-align:center;">
                         <div style="font-weight:600; margin-bottom:8px;">Factor</div>
                         <div class="touch-toggle" style="display:inline-flex; gap:12px;">
-                            <input type="hidden" id="factor" name="factor" value="{{ prev_factor }}">
+                            <input type="hidden" id="factor" name="factor" value="{{ prev_config.get('factor', default_config.get('factor', 10)) }}">
                             
-                            <button type="button" data-value="5" class="factor-btn selected" style="padding:12px 20px; font-size:20px; border-radius:10px; border:2px solid #cc822e; background:#cc822e; color:#fff; min-width:90px;">5</button>
+                            <button type="button" data-value="5" class="factor-btn {% if prev_config.get('factor', default_config.get('factor', 10)) == 5 %}selected{% endif %}" style="padding:12px 20px; font-size:20px; border-radius:10px; border:2px solid #cc822e; background:#cc822e; color:#fff; min-width:90px;">5</button>
                             
-                            <button type="button" data-value="10" class="factor-btn" style="padding:12px 20px; font-size:20px; border-radius:10px; border:2px solid #613ce7; background:#613ce7; color:#fff; min-width:90px;">10</button>
+                            <button type="button" data-value="10" class="factor-btn {% if prev_config.get('factor', default_config.get('factor', 10)) == 10 %}selected{% endif %}" style="padding:12px 20px; font-size:20px; border-radius:10px; border:2px solid #613ce7; background:#613ce7; color:#fff; min-width:90px;">10</button>
                         </div>
                     </div>
+                    {% endif %}
 
-                    <div style="display:flex; gap:18px; align-items:center;">
+                    <div style="display:flex; gap:18px; align-items:center; flex-wrap: wrap; justify-content: center;">
+                        {% if 'rounds' in default_config %}
                         <div style="text-align:center;">
                             <div style="font-weight:600; margin-bottom:6px;">Rounds</div>
                             <div class="touch-stepper" style="display:flex; gap:8px; align-items:center;">
                                 <button type="button" class="step-minus" style="font-size:22px; padding:8px 12px; border-radius:8px;">−</button>
-                                <input type="number" id="rounds" name="rounds" min="1" value="{{ prev_rounds }}" style="width:84px; font-size:20px; padding:8px; text-align:center;">
+                                <input type="number" id="rounds" name="rounds" min="1" value="{{ prev_config.get('rounds', default_config.get('rounds', 10)) }}" style="width:84px; font-size:20px; padding:8px; text-align:center;">
                                 <button type="button" class="step-plus" style="font-size:22px; padding:8px 12px; border-radius:8px;">+</button>
                             </div>
                         </div>
+                        {% endif %}
 
+                        {% if 'max_number' in default_config %}
                         <div style="text-align:center;">
                             <div style="font-weight:600; margin-bottom:6px;">Max Number</div>
                             <div class="touch-stepper" style="display:flex; gap:8px; align-items:center;">
                                 <button type="button" class="max-minus" style="font-size:22px; padding:8px 12px; border-radius:8px;">−</button>
-                                <input type="number" id="max_number" name="max_number" min="1" value="{{ prev_max_number }}" style="width:100px; font-size:20px; padding:8px; text-align:center;">
+                                <input type="number" id="max_number" name="max_number" min="1" value="{{ prev_config.get('max_number', default_config.get('max_number', 100)) }}" style="width:100px; font-size:20px; padding:8px; text-align:center;">
                                 <button type="button" class="max-plus" style="font-size:22px; padding:8px 12px; border-radius:8px;">+</button>
                             </div>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
                 <button type="submit" name="action" value="start_game" class="start-btn" style="font-size:20px; padding:14px 28px;">Start Game</button>
             </form>
             </div>
         {% endif %}
-        {% if session.game_state.get('current_round') > 0 %}
+        {% if session.games and session.games.get(game_id) and session.games[game_id].get('current_round', 0) > 0 %}
             <div class="score-item">
-                <div class="number-display" style="font-size: 60px; min-width: 220px; margin: 0 20px;">Score: {{ session.game_state.get('score') }} / {{ session.game_state.get('current_round') }}</div>
+                <div class="number-display" style="font-size: 60px; min-width: 220px; margin: 0 20px;">Score: {{ session.games[game_id].get('score', 0) }} / {{ session.games[game_id].get('current_round', 0) }}</div>
             </div>
         {% endif %}
         {% for entry in session.history %}

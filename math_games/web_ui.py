@@ -34,14 +34,7 @@ class WebUI(GameUI):
     
     def display_result(self, is_correct: bool) -> None:
         self._messages.append("Correct!" if is_correct else "Incorrect!")
-        # Add current round to history
-        if 'current_number' in session and 'last_answer' in session:
-            history_entry = {
-                'number': session['current_number'],
-                'answer': session['last_answer'],
-                'is_correct': is_correct
-            }
-            session['history'] = session.get('history', []) + [history_entry]
+        # History is managed in web_app.py for game-specific formats
     
     def display_game_over(self, state: GameState) -> None:
         self._messages = [

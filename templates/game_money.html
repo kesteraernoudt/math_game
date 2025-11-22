@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ game_info.name if game_info else 'Money Match' }}</title>
+    <style>
+        :root {
+            --bg: #0b1220;
+            --panel: #0e213d;
+            --accent: #22c55e;
+            --accent-2: #facc15;
+            --text: #f8fafc;
+            --muted: #cbd5e1;
+            --error: #ef4444;
+            --bill20-img: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='480' height='240' viewBox='0 0 480 240'><defs><linearGradient id='g20' x1='0%' y1='0%' x2='100%' y2='0%'><stop offset='0%' stop-color='%230b3a1c'/><stop offset='55%' stop-color='%2338ef7d'/><stop offset='100%' stop-color='%2315562f'/></linearGradient></defs><rect x='8' y='8' rx='18' ry='18' width='464' height='224' fill='url(%23g20)' stroke='%23d1f5d3' stroke-width='4'/><rect x='26' y='26' width='110' height='70' rx='12' ry='12' fill='none' stroke='%23d1f5d3' stroke-width='4'/><rect x='344' y='70' width='90' height='100' rx='12' ry='12' fill='none' stroke='%23d1f5d3' stroke-width='4'/><text x='80' y='70' font-family='Arial' font-size='34' font-weight='700' fill='%23d1f5d3'>$20</text><text x='240' y='135' font-family='Georgia' font-size='68' font-weight='700' fill='%23d1f5d3' text-anchor='middle'>20</text><text x='389' y='132' font-family='Arial' font-size='24' font-weight='700' fill='%23d1f5d3' text-anchor='middle'>USD</text></svg>");
+            --bill5-img: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='480' height='240' viewBox='0 0 480 240'><defs><linearGradient id='g5' x1='0%' y1='0%' x2='100%' y2='0%'><stop offset='0%' stop-color='%230c1c42'/><stop offset='55%' stop-color='%23598dff'/><stop offset='100%' stop-color='%2310296b'/></linearGradient></defs><rect x='8' y='8' rx='18' ry='18' width='464' height='224' fill='url(%23g5)' stroke='%23d6e6ff' stroke-width='4'/><rect x='26' y='26' width='110' height='70' rx='12' ry='12' fill='none' stroke='%23d6e6ff' stroke-width='4'/><rect x='344' y='70' width='90' height='100' rx='12' ry='12' fill='none' stroke='%23d6e6ff' stroke-width='4'/><text x='80' y='70' font-family='Arial' font-size='34' font-weight='700' fill='%23d6e6ff'>$5</text><text x='240' y='135' font-family='Georgia' font-size='68' font-weight='700' fill='%23d6e6ff' text-anchor='middle'>5</text><text x='389' y='132' font-family='Arial' font-size='24' font-weight='700' fill='%23d6e6ff' text-anchor='middle'>USD</text></svg>");
+            --bill1-img: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='480' height='240' viewBox='0 0 480 240'><defs><linearGradient id='g1' x1='0%' y1='0%' x2='100%' y2='0%'><stop offset='0%' stop-color='%2309281c'/><stop offset='55%' stop-color='%232fb56a'/><stop offset='100%' stop-color='%2310562e'/></linearGradient></defs><rect x='8' y='8' rx='18' ry='18' width='464' height='224' fill='url(%23g1)' stroke='%23d1f5d3' stroke-width='4'/><rect x='26' y='26' width='110' height='70' rx='12' ry='12' fill='none' stroke='%23d1f5d3' stroke-width='4'/><rect x='344' y='70' width='90' height='100' rx='12' ry='12' fill='none' stroke='%23d1f5d3' stroke-width='4'/><text x='80' y='70' font-family='Arial' font-size='34' font-weight='700' fill='%23d1f5d3'>$1</text><text x='240' y='135' font-family='Georgia' font-size='68' font-weight='700' fill='%23d1f5d3' text-anchor='middle'>1</text><text x='389' y='132' font-family='Arial' font-size='24' font-weight='700' fill='%23d1f5d3' text-anchor='middle'>USD</text></svg>");
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 14px;
+            font-family: "Trebuchet MS", Arial, sans-serif;
+            background: radial-gradient(circle at 15% 20%, #1f2f4f, #0b1220 60%);
+            color: var(--text);
+        }
+        a { color: var(--text); text-decoration: none; }
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.08);
+            transition: all 0.2s;
+        }
+        .nav-link:hover { background: rgba(255,255,255,0.14); }
+        .shell {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        .panel {
+            background: var(--panel);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 20px;
+            padding: 18px;
+            margin-top: 12px;
+            box-shadow: 0 14px 30px rgba(0,0,0,0.35);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .title {
+            font-size: 34px;
+            margin: 0;
+            letter-spacing: 0.4px;
+        }
+        .score-chip, .round-chip {
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.08);
+            font-weight: 700;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 12px;
+            margin-top: 10px;
+        }
+        .item-card {
+            position: relative;
+            overflow: hidden;
+        }
+        .item-card img {
+            width: 100%;
+            max-height: 240px;
+            object-fit: contain;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: #0f172a;
+        }
+        .item-meta {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 10px;
+        }
+        .pill {
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.09);
+            border: 1px solid rgba(255,255,255,0.12);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 800;
+        }
+        .pill .label { color: var(--muted); font-weight: 600; }
+        .total-due {
+            background: linear-gradient(135deg, var(--accent), #16a34a);
+            color: #0f172a;
+            font-size: 22px;
+            border: none;
+        }
+        .bills {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin-top: 10px;
+        }
+        .bill-card {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.16);
+            border-radius: 16px;
+            padding: 16px;
+            transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .bill-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.2); box-shadow: 0 10px 18px rgba(0,0,0,0.28); }
+        .stack-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .stack {
+            position: relative;
+            min-height: 190px;
+            border-radius: 16px;
+            padding: 16px 12px 12px 12px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.05), rgba(255,255,255,0.015) 60%), linear-gradient(135deg, #122843, #0e1e35);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 12px 18px rgba(0,0,0,0.34);
+        }
+        .stack .stack-label {
+            font-weight: 700;
+            color: var(--muted);
+            margin-top: 10px;
+            font-size: 13px;
+        }
+        .bill-stack {
+            position: relative;
+            width: 108%;
+            margin-left: -4%;
+            height: 170px;
+        }
+        .bill-layer {
+            position: absolute;
+            left: 0;
+            right: 0;
+            margin: 0 auto;
+            width: 110%;
+            margin-left: -5%;
+            height: auto;
+            aspect-ratio: 61 / 26;
+            border-radius: 6px;
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-size: cover;
+            background-color: transparent;
+            box-shadow: none;
+            border: none;
+            transform: translateY(0);
+            transition: transform 0.25s ease, opacity 0.25s ease;
+            overflow: hidden;
+        }
+        .bill-layer.d20 { background-image: url('/static/bills/20.jpg'); }
+        .bill-layer.d10 { background-image: url('/static/bills/10.jpg'); }
+        .bill-layer.d5 { background-image: url('/static/bills/5.jpg'); }
+        .bill-layer.d1 { background-image: url('/static/bills/1.jpg'); }
+        .stack.available .bill-layer { opacity: 1; }
+        .stack.used .bill-layer { opacity: 1; }
+        .stack.available:hover .bill-layer { opacity: 1; }
+        .flying-bill.d20 { background-image: url('/static/bills/20.jpg'); background-repeat: no-repeat; background-position: center; background-size: cover; }
+        .flying-bill.d10 { background-image: url('/static/bills/10.jpg'); background-repeat: no-repeat; background-position: center; background-size: cover; }
+        .flying-bill.d5 { background-image: url('/static/bills/5.jpg'); background-repeat: no-repeat; background-position: center; background-size: cover; }
+        .flying-bill.d1 { background-image: url('/static/bills/1.jpg'); background-repeat: no-repeat; background-position: center; background-size: cover; }
+        .bill-value { font-size: 30px; font-weight: 900; margin-top: 10px; }
+        .stack-count-chip {
+            margin-top: 6px;
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+            background: rgba(15,23,42,0.4);
+            padding: 6px 10px;
+            border-radius: 10px;
+            font-weight: 800;
+            color: var(--text);
+            border: 1px solid rgba(255,255,255,0.14);
+        }
+        .flying-bill {
+            position: fixed;
+            width: 120px;
+            height: 46px;
+            border-radius: 12px;
+            background-size: 180% 180%;
+            box-shadow: 0 12px 20px rgba(0,0,0,0.35);
+            border: 1px solid rgba(255,255,255,0.24);
+            z-index: 9999;
+            transition: transform 0.24s ease, opacity 0.24s ease;
+        }
+        .totals {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+        }
+        .totals .pill { align-items: center; }
+        .delta.ok { color: var(--accent); }
+        .delta.bad { color: var(--error); }
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .btn {
+            padding: 14px 18px;
+            border: none;
+            border-radius: 14px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+            font-size: 16px;
+        }
+        .btn:hover { transform: translateY(-2px); }
+        .btn-primary { background: var(--accent); color: #0f172a; }
+        .btn-ghost { background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid rgba(255,255,255,0.12); }
+        .btn-danger { background: var(--error); color: #0f172a; }
+        .messages {
+            margin-top: 14px;
+            display: grid;
+            gap: 8px;
+        }
+        .msg {
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+        .msg.correct { border-color: rgba(34,197,94,0.5); }
+        .msg.incorrect { border-color: rgba(239,68,68,0.6); }
+        .history {
+            margin-top: 18px;
+        }
+        .history h3 { margin: 0 0 8px 0; }
+        .history-list {
+            display: grid;
+            gap: 8px;
+        }
+        .history-item {
+            padding: 12px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            display: grid;
+            grid-template-columns: 1.2fr 1fr 1fr;
+            gap: 10px;
+            align-items: center;
+        }
+        .history-item small { color: var(--muted); }
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .config-grid label { display: block; color: var(--muted); margin-bottom: 4px; font-weight: 700; }
+        .config-grid input, .config-grid select {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(20,30,50,0.9);
+            color: #f8fafc;
+            font-size: 15px;
+            appearance: none;
+        }
+        .config-grid option { background: #0e213d; color: #f8fafc; }
+        .endcard { text-align: center; }
+        @media (max-width: 900px) {
+            .grid { grid-template-columns: 1fr; }
+            .history-item { grid-template-columns: 1fr; }
+            .item-card img { max-height: 200px; }
+            .panel { padding: 14px; }
+            body { padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <a class="nav-link" href="{{ url_for('index') }}">&#x2190; Back to Games</a>
+        <div class="panel">
+            {% if game_active %}
+                {% set game_data = session.games[game_id] %}
+                <div class="header">
+                    <div>
+                        <p class="title">{{ game_info.name if game_info else 'Money Match' }}</p>
+                        <div style="color: var(--muted)">Use the fewest bills possible to match the total.</div>
+                    </div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <div class="round-chip">Round {{ game_data.get('current_round', 0) + 1 }} / {{ game_data.get('config', {}).get('rounds', default_config.get('rounds', 8)) }}</div>
+                        <div class="score-chip">Score {{ game_data.get('score', 0) }}</div>
+                    </div>
+                </div>
+
+                <div class="grid">
+                    <div>
+                        <div class="item-card">
+                            <img src="{{ game_data.get('item_image') }}" alt="Item image" style="max-height:320px; object-fit:contain;">
+                        </div>
+                        <div class="item-meta">
+                            <div class="pill">
+                                <span class="label">Item</span>
+                                <span>{{ game_data.get('item_name','') }}</span>
+                            </div>
+                            <div class="pill">
+                                <span class="label">Price</span>
+                                <span>${{ game_data.get('item_price', 0) }}</span>
+                            </div>
+                            {% if game_data.get('show_tax', True) %}
+                                <div class="pill">
+                                    <span class="label">Sales Tax ({{ (game_data.get('tax_rate', default_config.get('tax_rate', 0.08)) * 100)|round(1) }}%)</span>
+                                    <span>${{ game_data.get('tax_amount', 0) }}</span>
+                                </div>
+                            {% endif %}
+                            <div class="pill total-due">
+                                <span class="label">Total Due</span>
+                                <span>${{ game_data.get('total_due', 0) }}</span>
+                            </div>
+                        </div>
+
+                        <div class="totals" style="margin-top:12px;">
+                            <div class="pill">
+                                <span class="label">You selected</span>
+                                <span id="selected-total">$0</span>
+                            </div>
+                            <div class="pill">
+                                <span class="label">Needed</span>
+                                <span>${{ game_data.get('total_due', 0) }}</span>
+                            </div>
+                            <div class="pill">
+                                <span class="label">Difference</span>
+                                <span id="delta" class="delta bad">$0</span>
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button form="money-form" type="submit" class="btn btn-primary" aria-label="Submit payment">Submit payment</button>
+                            <button type="button" id="clear-btn" class="btn btn-ghost" aria-label="Clear bills">Clear bills</button>
+                            <button form="money-form" type="submit" name="action" value="skip_round" class="btn btn-ghost" aria-label="Skip item">Skip item</button>
+                            <button form="money-form" type="submit" name="action" value="restart" class="btn btn-danger" aria-label="Restart game">Restart</button>
+                        </div>
+                        {% if messages %}
+                            <div class="messages">
+                                {% for m in messages %}
+                                    <div class="msg {% if 'Correct' in m %}correct{% elif 'Incorrect' in m %}incorrect{% endif %}">{{ m }}</div>
+                                {% endfor %}
+                            </div>
+                        {% elif game_data.get('awaiting_retry') %}
+                            <div class="messages">
+                                <div class="msg incorrect">Try again with fewer bills. Aim for the smallest stack that hits the total.</div>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <form method="POST" id="money-form">
+                            <input type="hidden" name="answer" id="answer-field" value="20:0,5:0,1:0">
+                            <div class="bills">
+                                {% for denom, img in {20:'/static/bills/20.jpg',10:'/static/bills/10.jpg',5:'/static/bills/5.jpg',1:'/static/bills/1.jpg'}.items() %}
+                                <div class="bill-card" data-denom="{{ denom }}">
+                                    <div class="stack-row">
+                                        <div class="stack available" data-denom="{{ denom }}" data-action="add">
+                                            <div class="bill-stack" data-stack="{{ denom }}"></div>
+                                            <div class="stack-label">Tap stack to add</div>
+                                        </div>
+                                        <div class="stack used" data-denom="{{ denom }}" data-action="remove">
+                                            <div class="bill-stack" data-used="{{ denom }}"></div>
+                                            <div class="stack-label">In use</div>
+                                        </div>
+                                    </div>
+                                    <div class="bill-value">${{ denom }} bills</div>
+                <div class="stack-count-chip">
+                    In use: <span data-count="{{ denom }}">0</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+                        </form>
+                    </div>
+                </div>
+
+                {% if session.history %}
+                    <div class="history">
+                        <h3>Recent attempts</h3>
+                        <div class="history-list">
+                            {% for entry in session.history[-6:]|reverse %}
+                                <div class="history-item">
+                                    <div>
+                                        <strong>{{ entry.item_name }}</strong>
+                                        <div><small>Price ${{ entry.item_price }}{% if entry.show_tax %} + tax ${{ entry.tax_amount }}{% endif %}</small></div>
+                                    </div>
+                                    <div>
+                                        <div><small>Your bills</small></div>
+                                        <div>{{ entry.user_counts.get(20,0) }}x$20, {{ entry.user_counts.get(10,0) }}x$10, {{ entry.user_counts.get(5,0) }}x$5, {{ entry.user_counts.get(1,0) }}x$1</div>
+                                        <div><small>Total ${{ entry.user_total or 0 }}</small></div>
+                                    </div>
+                                    <div>
+                                        {% if entry.skipped %}
+                                            <span style="color: var(--muted); font-weight:700;">Skipped</span>
+                                        {% elif entry.is_correct %}
+                                            <span style="color: var(--accent); font-weight:700;">Correct</span>
+                                        {% else %}
+                                            <span style="color: var(--error); font-weight:700;">Try again</span>
+                                        {% endif %}
+                                        <div><small>Best: {{ entry.best_counts.get(20,0) }}x$20, {{ entry.best_counts.get(10,0) }}x$10, {{ entry.best_counts.get(5,0) }}x$5, {{ entry.best_counts.get(1,0) }}x$1</small></div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+
+            {% elif game_over %}
+                {% set game_data = session.games[game_id] %}
+                <div class="endcard">
+                    <p class="title" style="margin-bottom:6px;">{{ game_info.name if game_info else 'Money Match' }}</p>
+                    <div style="font-size:22px; margin-bottom:10px;">Final Score: {{ game_data.get('score',0) }} / {{ game_data.get('current_round',0) }}</div>
+                    <form method="POST" style="margin-top:10px;">
+                        <button type="submit" name="action" value="restart" class="btn btn-primary" style="padding: 14px 20px;">Play again</button>
+                    </form>
+                </div>
+                {% if session.history %}
+                    <div class="history">
+                        <h3>All attempts</h3>
+                        <div class="history-list">
+                            {% for entry in session.history %}
+                                <div class="history-item">
+                                    <div>
+                                        <strong>{{ entry.item_name }}</strong>
+                                        <div><small>Price ${{ entry.item_price }}{% if entry.show_tax %} + tax ${{ entry.tax_amount }}{% endif %}</small></div>
+                                    </div>
+                                    <div>
+                                        <div><small>Your bills</small></div>
+                                        <div>{{ entry.user_counts.get(20,0) }}x$20, {{ entry.user_counts.get(10,0) }}x$10, {{ entry.user_counts.get(5,0) }}x$5, {{ entry.user_counts.get(1,0) }}x$1</div>
+                                        <div><small>Total ${{ entry.user_total or 0 }}</small></div>
+                                    </div>
+                                    <div>
+                                        {% if entry.skipped %}
+                                            <span style="color: var(--muted); font-weight:700;">Skipped</span>
+                                        {% elif entry.is_correct %}
+                                            <span style="color: var(--accent); font-weight:700;">Correct</span>
+                                        {% else %}
+                                            <span style="color: var(--error); font-weight:700;">Try again</span>
+                                        {% endif %}
+                                        <div><small>Best: {{ entry.best_counts.get(20,0) }}x$20, {{ entry.best_counts.get(10,0) }}x$10, {{ entry.best_counts.get(5,0) }}x$5, {{ entry.best_counts.get(1,0) }}x$1</small></div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+
+            {% else %}
+                <div class="header" style="margin-bottom:16px;">
+                    <div>
+                        <p class="title">{{ game_info.name if game_info else 'Money Match' }}</p>
+                        <div style="color: var(--muted)">Match the total using the smallest number of $20, $5, and $1 bills.</div>
+                    </div>
+                </div>
+                <form method="POST">
+                    <div class="config-grid">
+                        <div>
+                            <label for="rounds">Rounds</label>
+                            <input type="number" id="rounds" name="rounds" min="1" value="{{ game_config.get('rounds', default_config.get('rounds', 8)) }}" required>
+                        </div>
+                        <div>
+                            <label for="max_price">Max item price</label>
+                            <input type="number" id="max_price" name="max_price" min="1" value="{{ game_config.get('max_price', default_config.get('max_price', 50)) }}" required>
+                        </div>
+                        <div>
+                            <label for="tax_rate">Sales tax rate</label>
+                            <input type="number" step="0.01" min="0" id="tax_rate" name="tax_rate" value="{{ game_config.get('tax_rate', default_config.get('tax_rate', 0.08)) }}">
+                        </div>
+                        <div>
+                            <label for="show_tax">Display sales tax?</label>
+                            <select id="show_tax" name="show_tax">
+                                {% set show_tax_val = game_config.get('show_tax', default_config.get('show_tax', True)) %}
+                                <option value="true" {% if show_tax_val %}selected{% endif %}>Yes</option>
+                                <option value="false" {% if not show_tax_val %}selected{% endif %}>No</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="actions" style="margin-top:16px;">
+                        <button type="submit" name="action" value="start_game" class="btn btn-primary">Start game</button>
+                    </div>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        (function(){
+            const counts = {20: 0, 10: 0, 5: 0, 1: 0};
+            const answerField = document.getElementById('answer-field');
+            const selectedTotal = document.getElementById('selected-total');
+            const deltaEl = document.getElementById('delta');
+            const needed = {{ session.games[game_id].get('total_due', 0) if game_active else 0 }};
+
+            function syncAnswer() {
+                if (answerField) {
+                    answerField.value = `20:${counts[20]},10:${counts[10]},5:${counts[5]},1:${counts[1]}`;
+                }
+            }
+
+            function updateTotals() {
+                const total = counts[20]*20 + counts[10]*10 + counts[5]*5 + counts[1];
+                if (selectedTotal) selectedTotal.textContent = `$${total}`;
+                if (deltaEl) {
+                    const delta = total - needed;
+                    deltaEl.textContent = `${delta >= 0 ? '+' : ''}$${delta}`;
+                    deltaEl.className = delta === 0 ? 'delta ok' : 'delta bad';
+                }
+                document.querySelectorAll('[data-count]').forEach(el => {
+                    const denom = Number(el.getAttribute('data-count'));
+                    el.textContent = counts[denom];
+                });
+                syncAnswer();
+            }
+
+            function renderStacks() {
+                [20,10,5,1].forEach(denom => {
+                    const available = document.querySelector(`[data-stack="${denom}"]`);
+                    const used = document.querySelector(`[data-used="${denom}"]`);
+                    if (available) buildStack(available, 5, denom, false);
+                    if (used) buildStack(used, counts[denom], denom, true);
+                });
+            }
+
+            function buildStack(container, count, denom, isUsed) {
+                container.innerHTML = '';
+                const layers = Math.max(count, isUsed ? 0 : 3);
+                for (let i = 0; i < layers; i++) {
+                    const layer = document.createElement('div');
+                    layer.className = 'bill-layer';
+                    layer.classList.add(denom === 20 ? 'd20' : denom === 10 ? 'd10' : denom === 5 ? 'd5' : 'd1');
+                    const offset = (layers - i - 1) * 14;
+                    layer.style.transform = `translateY(${offset}px)`;
+                    layer.style.opacity = 1;
+                    container.appendChild(layer);
+                }
+            }
+
+            function flyBill(denom, fromEl, toEl, onEnd) {
+                if (!fromEl || !toEl) { onEnd && onEnd(); return; }
+                const rectFrom = fromEl.getBoundingClientRect();
+                const rectTo = toEl.getBoundingClientRect();
+                const bill = document.createElement('div');
+                bill.className = 'flying-bill';
+                bill.classList.add(denom === 20 ? 'd20' : denom === 10 ? 'd10' : denom === 5 ? 'd5' : 'd1');
+                const startX = rectFrom.left + rectFrom.width/2 - 60;
+                const startY = rectFrom.top + rectFrom.height/2 - 23;
+                bill.style.left = `${startX}px`;
+                bill.style.top = `${startY}px`;
+                document.body.appendChild(bill);
+                let timer = null;
+                const cleanup = () => {
+                    if (timer) clearTimeout(timer);
+                    bill.remove();
+                    onEnd && onEnd();
+                };
+                requestAnimationFrame(() => {
+                    const dx = (rectTo.left + rectTo.width/2) - (rectFrom.left + rectFrom.width/2);
+                    const dy = (rectTo.top + rectTo.height/2) - (rectFrom.top + rectFrom.height/2);
+                    bill.style.transform = `translate(${dx}px, ${dy}px) scale(0.98)`;
+                    bill.style.opacity = '0.9';
+                });
+                bill.addEventListener('transitionend', cleanup, { once: true });
+                timer = setTimeout(cleanup, 340);
+            }
+
+            function changeCount(denom, dir, skipRender=false) {
+                counts[denom] = Math.max(0, counts[denom] + dir);
+                if (!skipRender) {
+                    renderStacks();
+                    updateTotals();
+                }
+            }
+
+            function handleStackTap(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const stack = e.currentTarget;
+                const denom = Number(stack.getAttribute('data-denom'));
+                const action = stack.getAttribute('data-action');
+                if (action === 'add') {
+                    const used = document.querySelector(`.stack.used[data-denom="${denom}"]`);
+                    flyBill(denom, stack, used, () => changeCount(denom, 1));
+                } else if (action === 'remove') {
+                    if (counts[denom] <= 0) return;
+                    const avail = document.querySelector(`.stack.available[data-denom="${denom}"]`);
+                    // Drop the bill immediately so the stack reflects the change during animation
+                    changeCount(denom, -1, true);
+                    renderStacks();
+                    updateTotals();
+                    flyBill(denom, stack, avail);
+                }
+            }
+
+            document.querySelectorAll('.stack').forEach(stack => {
+                stack.style.touchAction = 'manipulation';
+                stack.addEventListener('click', handleStackTap);
+            });
+
+            const clearBtn = document.getElementById('clear-btn');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    counts[20] = counts[5] = counts[1] = 0;
+                    renderStacks();
+                    updateTotals();
+                });
+            }
+
+            renderStacks();
+            updateTotals();
+        })();
+    </script>
+</body>
+</html>

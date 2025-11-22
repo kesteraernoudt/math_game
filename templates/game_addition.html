@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ game_info.name if game_info else 'Addition Game' }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+            background-color: #f5f5f5;
+        }
+        .nav-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            background-color: #95a5a6;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: background-color 0.2s;
+        }
+        .nav-link:hover {
+            background-color: #7f8c8d;
+        }
+        .game-box {
+            border: 1px solid #ddd;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 20px 0;
+            background-color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .problem-display {
+            font-size: 72px;
+            font-weight: bold;
+            margin: 30px 0;
+            color: #2c3e50;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .number {
+            display: inline-block;
+            margin: 0 20px;
+        }
+        .plus-sign {
+            font-size: 72px;
+            color: #3498db;
+            margin: 0 10px;
+        }
+        .equals-sign {
+            font-size: 72px;
+            color: #e74c3c;
+            margin: 0 10px;
+        }
+        .answer-input {
+            font-size: 48px;
+            width: 200px;
+            padding: 15px;
+            text-align: center;
+            border: 3px solid #3498db;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .answer-input:focus {
+            outline: none;
+            border-color: #2980b9;
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.3);
+        }
+        .submit-btn {
+            padding: 15px 40px;
+            font-size: 24px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin: 20px 0;
+        }
+        .submit-btn:hover {
+            background-color: #2980b9;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 1.2em;
+        }
+        .message.correct {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .message.incorrect {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .score {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px 0;
+            color: #34495e;
+        }
+        .round-info {
+            font-size: 1.2em;
+            color: #7f8c8d;
+            margin: 10px 0;
+        }
+        .start-btn {
+            padding: 15px 30px;
+            font-size: 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .start-btn:hover {
+            background-color: #2980b9;
+        }
+        .config-form {
+            margin-top: 30px;
+        }
+        .config-item {
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+        .config-item label {
+            font-weight: 600;
+            min-width: 120px;
+        }
+        .config-item input {
+            padding: 8px;
+            font-size: 18px;
+            width: 100px;
+            text-align: center;
+        }
+        .history {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+        }
+        .history-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 8px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .history-problem {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .history-answer {
+            color: #7f8c8d;
+        }
+        .history-result {
+            font-size: 1.2em;
+        }
+        .history-result.correct {
+            color: #2ecc71;
+        }
+        .history-result.incorrect {
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <div style="text-align: left; margin-bottom: 20px;">
+        <a href="{{ url_for('index') }}" class="nav-link">← Back to Games</a>
+    </div>
+
+    <div class="game-box">
+        {% if game_active %}
+            <!-- Round info -->
+            {% if messages|length > 0 %}
+                <div class="round-info">{{ messages[0] }}</div>
+            {% endif %}
+
+            <!-- Problem display -->
+            {% if session.games and session.games.get(game_id) %}
+                {% set game_data = session.games[game_id] %}
+                <div class="problem-display">
+                    <span class="number">{{ game_data.get('number1', '?') }}</span>
+                    <span class="plus-sign">+</span>
+                    <span class="number">{{ game_data.get('number2', '?') }}</span>
+                    <span class="equals-sign">=</span>
+                    <span class="number">?</span>
+                </div>
+            {% endif %}
+
+            <!-- Answer form -->
+            <form method="POST" style="margin-top: 30px;">
+                <input type="number" name="answer" class="answer-input" autofocus placeholder="?" min="0" required>
+                <br>
+                <button type="submit" class="submit-btn">Submit Answer</button>
+            </form>
+
+            <!-- Feedback messages -->
+            {% for message in messages %}
+                {% if loop.index0 > 0 %}
+                    <div class="message {% if 'Correct' in message %}correct{% elif 'Incorrect' in message %}incorrect{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endif %}
+            {% endfor %}
+
+            <!-- Score display -->
+            {% if session.games and session.games.get(game_id) and session.games[game_id].get('current_round', 0) > 0 %}
+                <div class="score">
+                    Score: {{ session.games[game_id].get('score', 0) }} / {{ session.games[game_id].get('current_round', 0) }}
+                </div>
+            {% endif %}
+
+            <!-- History (Recent answers during active game) -->
+            {% if session.history and not game_over %}
+                <div class="history">
+                    <h3>Recent Answers</h3>
+                    {% for entry in session.history[-5:] %}
+                        <div class="history-item">
+                            <span class="history-problem">{{ entry.number1 }} + {{ entry.number2 }} = {{ entry.user_answer }}</span>
+                            <span class="history-result {% if entry.is_correct %}correct{% else %}incorrect{% endif %}">
+                                {% if entry.is_correct %}
+                                    ✓ Correct ({{ entry.correct_answer }})
+                                {% else %}
+                                    ✗ Incorrect (Correct: {{ entry.correct_answer }})
+                                {% endif %}
+                            </span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <!-- Restart button -->
+            <form method="POST" style="margin-top: 30px;">
+                <button type="submit" name="action" value="restart" class="start-btn">Restart Game</button>
+            </form>
+
+        {% elif game_over %}
+            <!-- Game Over Screen -->
+            <!-- Display Game Over messages -->
+            {% for message in messages %}
+                <div class="message {% if 'Game Over' in message %}correct{% elif 'Correct' in message %}correct{% elif 'Incorrect' in message %}incorrect{% endif %}" style="font-size: 1.5em; font-weight: bold; margin: 20px 0;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+
+            <!-- Final Score -->
+            {% if session.games and session.games.get(game_id) %}
+                {% set game_data = session.games[game_id] %}
+                <div class="score" style="font-size: 32px; margin: 30px 0;">
+                    Final Score: {{ game_data.get('score', 0) }} / {{ game_data.get('current_round', 0) }}
+                </div>
+            {% endif %}
+
+            <!-- Full History (All answers at end of game) -->
+            {% if session.history %}
+                <div class="history">
+                    <h3 style="font-size: 1.5em; margin-bottom: 20px;">All Answers</h3>
+                    {% for entry in session.history %}
+                        <div class="history-item">
+                            <span class="history-problem">{{ entry.number1 }} + {{ entry.number2 }} = {{ entry.user_answer }}</span>
+                            <span class="history-result {% if entry.is_correct %}correct{% else %}incorrect{% endif %}">
+                                {% if entry.is_correct %}
+                                    ✓ Correct ({{ entry.correct_answer }})
+                                {% else %}
+                                    ✗ Incorrect (Correct: {{ entry.correct_answer }})
+                                {% endif %}
+                            </span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <!-- Restart/New Game button -->
+            <form method="POST" style="margin-top: 30px;">
+                <button type="submit" name="action" value="restart" class="start-btn" style="font-size:20px; padding:14px 28px;">Start New Game</button>
+            </form>
+
+        {% else %}
+            <!-- Configuration form -->
+            <h2>{{ game_info.name if game_info else 'Addition Game' }}</h2>
+            <p>{{ game_info.description if game_info else 'Solve addition problems!' }}</p>
+
+            <form method="POST" class="config-form">
+                <div class="config-item">
+                    <label for="rounds">Number of Rounds:</label>
+                    <input type="number" id="rounds" name="rounds" min="1" value="{{ game_config.get('rounds', default_config.get('rounds', 10)) }}" required>
+                </div>
+                <div class="config-item">
+                    <label for="max_number">Max Number:</label>
+                    <input type="number" id="max_number" name="max_number" min="1" value="{{ game_config.get('max_number', default_config.get('max_number', 50)) }}" required>
+                </div>
+                <button type="submit" name="action" value="start_game" class="start-btn" style="font-size:20px; padding:14px 28px;">Start Game</button>
+            </form>
+        {% endif %}
+    </div>
+
+    <script>
+        // Auto-focus on answer input when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            const answerInput = document.querySelector('.answer-input');
+            if (answerInput) {
+                answerInput.focus();
+                // Allow Enter key to submit
+                answerInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.form.submit();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
+

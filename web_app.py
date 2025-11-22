@@ -1,91 +1,221 @@
 from flask import Flask, render_template, request, session, redirect, url_for
-from math_games.game_engine import RoundingGameEngine
+from math_games import GameRegistry
 from math_games.web_ui import WebUI
+from game_handlers import HandlerRegistry
+from jinja2.exceptions import TemplateNotFound
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Required for session management
 
 
-def get_or_create_game_state():
-    """Get or create serializable game state data."""
-    if 'game_state' not in session:
-        session['game_state'] = {
-            'score': 0,
-            'current_round': 0,
-            'active': False,
-            'over': False,
-            'current_number': None,
-            'max_number': 100,
-            'rounds': 10,
-            'factor': 10
-        }
-    return session['game_state']
+def get_or_create_game_state(game_id: str):
+    """Get or create serializable game state data for a specific game."""
+    if 'games' not in session:
+        session['games'] = {}
+    
+    if game_id not in session['games']:
+        # Get default config for the game
+        game_class = GameRegistry.get_game(game_id)
+        if game_class is None:
+            return None
+        
+        default_config = game_class.get_default_config() if hasattr(game_class, 'get_default_config') else {}
+        
+        # Get handler to create proper initial state
+        engine = game_class(**default_config) if default_config else game_class()
+        handler = HandlerRegistry.get_handler(game_id, engine)
+        
+        if handler:
+            initial_state = handler.get_initial_state(default_config)
+        else:
+            # Fallback generic state
+            initial_state = {
+                'score': 0,
+                'current_round': 0,
+                'active': False,
+                'over': False,
+                'config': default_config,
+            }
+        
+        session['games'][game_id] = initial_state
+    
+    return session['games'][game_id]
 
 
-@app.route('/', methods=['GET', 'POST'])
-def game():
-    game_state = get_or_create_game_state()
+def create_game_engine(game_id: str, game_state: dict):
+    """Create a game engine instance from game state."""
+    game_class = GameRegistry.get_game(game_id)
+    if game_class is None:
+        return None
+    
+    config = game_state.get('config', {})
+    engine = game_class(**config)
+    engine.score = game_state.get('score', 0)
+    engine.current_round = game_state.get('current_round', 0)
+    
+    # Try to restore game-specific state
+    if hasattr(engine, 'deserialize_state'):
+        engine.deserialize_state(game_state)
+    
+    return engine
+
+
+def extract_config_from_form(game_class, request_form):
+    """Extract configuration values from form data."""
+    config = {}
+    default_config = game_class.get_default_config()
+    
+    for key in default_config.keys():
+        if key in request_form:
+            value = request_form.get(key)
+            if value is not None:
+                # Try to convert to appropriate type
+                default_value = default_config[key]
+                # Handle bool before int (bool is subclass of int)
+                if isinstance(default_value, bool):
+                    config[key] = str(value).lower() in ('1', 'true', 'yes', 'on')
+                elif isinstance(default_value, int):
+                    config[key] = int(value)
+                elif isinstance(default_value, float):
+                    config[key] = float(value)
+                else:
+                    config[key] = value
+            else:
+                config[key] = default_config[key]
+        else:
+            config[key] = default_config[key]
+    
+    return config
+
+
+@app.route('/')
+def index():
+    """Game selection page."""
+    games = GameRegistry.list_game_info()
+    return render_template('index.html', games=games)
+
+
+@app.route('/game/<game_id>', methods=['GET', 'POST'])
+def game(game_id):
+    """Main game route for a specific game."""
+    # Check if game exists
+    game_class = GameRegistry.get_game(game_id)
+    if game_class is None:
+        return redirect(url_for('index'))
+    
+    game_state = get_or_create_game_state(game_id)
+    if game_state is None:
+        return redirect(url_for('index'))
+    
     ui = WebUI()
+    
     # Toggle debug UI via ?debug=1/0 (persisted in session)
     if 'debug' in request.args:
         val = request.args.get('debug', '0').lower()
         session['show_debug'] = val in ('1', 'true', 'yes', 'on')
     
     # Create game engine with current state
-    engine = RoundingGameEngine(
-        max_number=game_state['max_number'],
-        rounds=game_state['rounds'],
-        factor=game_state['factor']
-    )
-    engine.score = game_state['score']
-    engine.current_round = game_state['current_round']
-    engine._current_number = game_state['current_number']
+    engine = create_game_engine(game_id, game_state)
+    if engine is None:
+        return redirect(url_for('index'))
     
+    # Get handler for this game
+    handler = HandlerRegistry.get_handler(game_id, engine)
+
     if request.method == 'POST':
         if 'action' in request.form:
             if request.form['action'] == 'restart':
-                # Just clear the session and show the input form
-                #session.pop('game_state', None)
-                game_state['active'] = False
-                game_state['over'] = True
+                # Reset state so the config screen shows instead of looping on game over
                 session['history'] = []
-                # Save game state
-                session['game_state'] = game_state
-                return redirect(url_for('game'))
+                config = game_state.get('config', game_class.get_default_config())
+                if handler:
+                    fresh_state = handler.get_initial_state(config)
+                else:
+                    fresh_state = {
+                        'score': 0,
+                        'current_round': 0,
+                        'active': False,
+                        'over': False,
+                        'config': config,
+                    }
+                fresh_state['active'] = False
+                fresh_state['over'] = False
+                session['games'][game_id] = fresh_state
+                return redirect(url_for('game', game_id=game_id))
+            
+            if request.form['action'] == 'skip_round' and game_state.get('active') and handler and hasattr(handler, 'handle_skip_round'):
+                handler.handle_skip_round(game_state)
+                return redirect(url_for('game', game_id=game_id))
+            
             if request.form['action'] == 'start_game':
-                # Get custom settings or use defaults
-                factor = int(request.form.get('factor', 10))
-                rounds = int(request.form.get('rounds', 10))
-                max_number = int(request.form.get('max_number', 100))
-                session.pop('game_state', None)
+                # Get custom settings from form
+                config = extract_config_from_form(game_class, request.form)
+                
+                # Get initial state from handler
+                if handler:
+                    initial_state = handler.get_initial_state(config)
+                else:
+                    initial_state = {
+                        'score': 0,
+                        'current_round': 0,
+                        'active': True,
+                        'over': False,
+                        'config': config,
+                    }
+                initial_state['active'] = True
+                initial_state['over'] = False
+                
+                session['games'][game_id] = initial_state
                 session['history'] = []
+                
                 # Generate the first number
-                engine = RoundingGameEngine(max_number=max_number, rounds=rounds, factor=factor)
-                number = engine._generate_number()
-                # Set new game state with custom values and first number
-                session['game_state'] = {
-                    'score': 0,
-                    'current_round': 0,
-                    'active': True,
-                    'over': False,
-                    'current_number': number,
-                    'max_number': max_number,
-                    'rounds': rounds,
-                    'factor': factor
-                }
-                session['current_number'] = number
-                return redirect(url_for('game'))
+                engine = game_class(**config)
+                if hasattr(engine, 'start_round'):
+                    state = engine.start_round()
+                    if state and handler:
+                        handler.save_state_to_session(initial_state, state)
+                        # Also save to engine attributes if needed
+                        if hasattr(state, 'current_number'):
+                            session['current_number'] = state.current_number
+                        elif hasattr(engine, '_current_number'):
+                            session['current_number'] = engine._current_number
+                        if hasattr(state, 'number1'):
+                            session['games'][game_id]['number1'] = state.number1
+                        if hasattr(state, 'number2'):
+                            session['games'][game_id]['number2'] = state.number2
+                
+                return redirect(url_for('game', game_id=game_id))
+        
         elif 'answer' in request.form and game_state['active']:
             answer = request.form['answer']
-            # Save the number being answered for history
-            session['current_number'] = game_state['current_number']
             session['last_answer'] = answer
+            
+            # Save pre-answer state (for history)
+            if handler:
+                handler.save_pre_answer_state(game_state)
+            
             # Process the answer
             is_correct, state = engine.submit_answer(answer)
             ui.display_result(is_correct)
+            
+            # Add to history (game-specific)
+            if 'history' not in session:
+                session['history'] = []
+            
+            if handler:
+                history_entry = handler.create_history_entry(answer, state, is_correct)
+            else:
+                # Fallback generic history
+                history_entry = {
+                    'answer': answer,
+                    'is_correct': is_correct
+                }
+            session['history'].append(history_entry)
+            
             # Update session state
             game_state['score'] = engine.score
             game_state['current_round'] = engine.current_round
+            
             # Start next round or end game
             new_state = engine.start_round()
             if new_state is None:
@@ -93,9 +223,16 @@ def game():
                 game_state['active'] = False
                 game_state['over'] = True
             else:
-                game_state['current_number'] = engine._current_number
-                session['current_number'] = engine._current_number
-                ui.display_round(new_state)
+                # Save game-specific state
+                if handler:
+                    handler.save_state_to_session(game_state, new_state)
+                    handler.setup_post_answer_ui(ui, new_state)
+                else:
+                    # Fallback: try to save common state attributes
+                    if hasattr(new_state, 'current_number'):
+                        game_state['current_number'] = new_state.current_number
+                        session['current_number'] = new_state.current_number
+    
     elif request.method == 'GET':
         # If no active game, show the input form for new game settings
         if not game_state['active'] and not game_state['over']:
@@ -104,36 +241,64 @@ def game():
         else:
             # Show welcome and round info when game is active
             if game_state['active'] and not game_state['over']:
-                ui.display_welcome(engine.rounds, engine.factor)
-                ui.display_round(engine.get_game_state())
+                if handler:
+                    handler.setup_ui_display(ui, game_state)
     
     # Save game state
-    session['game_state'] = game_state
+    session['games'][game_id] = game_state
     # Get messages to display
     messages = ui.get_messages()
     ui.clear_messages()
     show_debug = session.get('show_debug', False)
-
+    
     # Fallback: if there are no messages but we have a current number in the session,
     # ensure the round info is displayed so the template has content to render.
-    if (not messages) and session.get('current_number') is not None:
+    # Only do this for rounding game since other games handle display differently
+    if (not messages) and game_id == 'rounding' and session.get('current_number') is not None:
         try:
-            ui.display_round(engine.get_game_state())
+            game_state_obj = engine.get_game_state()
+            ui.display_round(game_state_obj)
             messages = ui.get_messages()
             ui.clear_messages()
-        except Exception:
+        except (AttributeError, TypeError):
             # If anything goes wrong here, swallow the error and continue
-            # so the template can still render (debug UI will help diagnose).
             pass
     
-    return render_template(
-        'game.html',
-        messages=messages,
-        game_active=game_state['active'],
-        game_over=game_state['over'],
-        session=session,
-        show_debug=show_debug
-    )
+    # Get game info for template
+    game_info = GameRegistry.get_game_info(game_id)
+    
+    # Try to use game-specific template, fallback to generic game.html
+    template_name = f'game_{game_id}.html'
+    
+    try:
+        return render_template(
+            template_name,
+            messages=messages,
+            game_active=game_state['active'],
+            game_over=game_state['over'],
+            session=session,
+            show_debug=show_debug,
+            game_id=game_id,
+            game_info=game_info,
+            game_config=game_state.get('config', {}),
+            default_config=game_class.get_default_config(),
+            engine=engine
+        )
+    except TemplateNotFound:
+        # Fallback to generic template
+        return render_template(
+            'game.html',
+            messages=messages,
+            game_active=game_state['active'],
+            game_over=game_state['over'],
+            session=session,
+            show_debug=show_debug,
+            game_id=game_id,
+            game_info=game_info,
+            game_config=game_state.get('config', {}),
+            default_config=game_class.get_default_config(),
+            engine=engine
+        )
 
 
 if __name__ == '__main__':
