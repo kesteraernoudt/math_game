@@ -78,7 +78,7 @@
     
     <div class="games-grid">
         {% for game_id, game_info in games.items() %}
-        <a href="{{ url_for('game', game_id=game_id) }}" class="game-card">
+        <a href="{{ url_for('game', game_id=game_id, fresh=1) }}" class="game-card">
             <h2>{{ game_info.name }}</h2>
             <p>{{ game_info.description }}</p>
             <span class="play-button">Play Now →</span>

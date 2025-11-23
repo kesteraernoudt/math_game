@@ -106,7 +106,7 @@ def game(game_id):
     game_state = get_or_create_game_state(game_id)
     if game_state is None:
         return redirect(url_for('index'))
-    
+
     ui = WebUI()
     
     # Toggle debug UI via ?debug=1/0 (persisted in session)
@@ -121,6 +121,27 @@ def game(game_id):
     
     # Get handler for this game
     handler = HandlerRegistry.get_handler(game_id, engine)
+
+    # If coming fresh from index (fresh=1), reset to initial config screen
+    if request.args.get('fresh') == '1':
+        default_config = game_class.get_default_config()
+        if handler:
+            initial_state = handler.get_initial_state(default_config)
+        else:
+            initial_state = {
+                'score': 0,
+                'current_round': 0,
+                'active': False,
+                'over': False,
+                'config': default_config,
+            }
+        initial_state['active'] = False
+        initial_state['over'] = False
+        session['games'][game_id] = initial_state
+        session['history'] = []
+        game_state = initial_state
+        engine = create_game_engine(game_id, game_state)
+        handler = HandlerRegistry.get_handler(game_id, engine)
 
     if request.method == 'POST':
         if 'action' in request.form:
