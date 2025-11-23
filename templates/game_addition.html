@@ -127,6 +127,39 @@
         .start-btn:hover {
             background-color: #2980b9;
         }
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(90px, 1fr));
+            gap: 12px;
+            justify-items: center;
+            margin: 10px auto 20px;
+            max-width: 400px;
+        }
+        .key-btn {
+            width: 100%;
+            padding: 18px 0;
+            font-size: 26px;
+            font-weight: 700;
+            color: #0b1220;
+            background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.25);
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .key-btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .key-btn.alt {
+            background: linear-gradient(135deg, #f87171, #ef4444);
+            color: #fff;
+        }
+        .key-btn.subtle {
+            background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+            color: #0b1220;
+        }
         .config-form {
             margin-top: 30px;
         }
@@ -153,35 +186,37 @@
             gap: 10px;
             margin: 20px 0;
             padding: 15px;
-            background-color: #f8f9fa;
+            background-color: rgba(255,255,255,0.05);
             border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.08);
         }
         .history-item {
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 15px;
-            padding: 8px;
-            background-color: white;
+            padding: 10px 12px;
+            background: rgba(12, 20, 35, 0.9);
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+            border: 1px solid rgba(255,255,255,0.08);
         }
         .history-problem {
             font-size: 1.2em;
             font-weight: bold;
-            color: #2c3e50;
+            color: #e2e8f0;
         }
         .history-answer {
-            color: #7f8c8d;
+            color: #cbd5e1;
         }
         .history-result {
             font-size: 1.2em;
         }
         .history-result.correct {
-            color: #2ecc71;
+            color: #22c55e;
         }
         .history-result.incorrect {
-            color: #e74c3c;
+            color: #f87171;
         }
     </style>
 </head>
@@ -212,8 +247,21 @@
 
             <!-- Answer form -->
             <form method="POST" style="margin-top: 30px;">
-                <input type="number" name="answer" class="answer-input" autofocus placeholder="?" min="0" required>
-                <br>
+                <input type="number" name="answer" class="answer-input" id="answer-input" inputmode="numeric" pattern="[0-9]*" placeholder="?" min="0" required readonly>
+                <div class="keypad" aria-label="Number pad">
+                    <button type="button" class="key-btn" data-key="7">7</button>
+                    <button type="button" class="key-btn" data-key="8">8</button>
+                    <button type="button" class="key-btn" data-key="9">9</button>
+                    <button type="button" class="key-btn" data-key="4">4</button>
+                    <button type="button" class="key-btn" data-key="5">5</button>
+                    <button type="button" class="key-btn" data-key="6">6</button>
+                    <button type="button" class="key-btn" data-key="1">1</button>
+                    <button type="button" class="key-btn" data-key="2">2</button>
+                    <button type="button" class="key-btn" data-key="3">3</button>
+                    <button type="button" class="key-btn subtle" data-key="clear">Clear</button>
+                    <button type="button" class="key-btn" data-key="0">0</button>
+                    <button type="button" class="key-btn alt" data-key="backspace">⌫</button>
+                </div>
                 <button type="submit" class="submit-btn">Submit Answer</button>
             </form>
 
@@ -320,10 +368,26 @@
     <script>
         // Auto-focus on answer input when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            const answerInput = document.querySelector('.answer-input');
+            const answerInput = document.getElementById('answer-input');
             if (answerInput) {
                 answerInput.focus();
-                // Allow Enter key to submit
+            }
+            const keys = document.querySelectorAll('.key-btn');
+            if (keys.length && answerInput) {
+                keys.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const key = btn.getAttribute('data-key');
+                        if (key === 'backspace') {
+                            answerInput.value = answerInput.value.slice(0, -1);
+                        } else if (key === 'clear') {
+                            answerInput.value = '';
+                        } else if (/^[0-9]$/.test(key)) {
+                            answerInput.value = (answerInput.value + key).replace(/^0+(?=\d)/, '');
+                        }
+                        answerInput.focus();
+                    });
+                });
+                // Submit on Enter key if user brings up native keyboard
                 answerInput.addEventListener('keypress', function(e) {
                     if (e.key === 'Enter') {
                         e.preventDefault();
