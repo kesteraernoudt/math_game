@@ -184,7 +184,8 @@ class MoneyGameEngine(BaseGameEngine):
         if self.require_minimal_bills:
             is_correct = user_total == pay_total and counts == best_combo
         else:
-            is_correct = user_total == pay_total
+            # Accept any payment that meets or exceeds the needed total
+            is_correct = user_total >= pay_total
 
         self._last_result = {
             "counts": counts,

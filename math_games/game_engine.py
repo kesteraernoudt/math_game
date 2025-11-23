@@ -19,11 +19,12 @@ GameState = RoundingGameState
 
 
 class RoundingGameEngine(BaseGameEngine):
-    def __init__(self, max_number=100, rounds=10, factor=5, **kwargs):
-        super().__init__(max_number=max_number, rounds=rounds, factor=factor, **kwargs)
+    def __init__(self, max_number=100, rounds=10, factor=5, show_axis=True, **kwargs):
+        super().__init__(max_number=max_number, rounds=rounds, factor=factor, show_axis=show_axis, **kwargs)
         self.max_number = max_number
         self.rounds = rounds
         self.factor = factor
+        self.show_axis = show_axis
         self.score = 0
         self.current_round = 0
         self._current_number = None
@@ -95,7 +96,8 @@ class RoundingGameEngine(BaseGameEngine):
         return {
             'max_number': 100,
             'rounds': 10,
-            'factor': 10
+            'factor': 10,
+            'show_axis': True,
         }
     
     def get_game_name(self) -> str:
@@ -116,7 +118,8 @@ class RoundingGameEngine(BaseGameEngine):
             'config': {
                 'max_number': self.max_number,
                 'rounds': self.rounds,
-                'factor': self.factor
+                'factor': self.factor,
+                'show_axis': self.show_axis
             }
         }
     
@@ -129,4 +132,5 @@ class RoundingGameEngine(BaseGameEngine):
         self.max_number = config.get('max_number', 100)
         self.rounds = config.get('rounds', 10)
         self.factor = config.get('factor', 10)
+        self.show_axis = config.get('show_axis', True)
         self._config = config
