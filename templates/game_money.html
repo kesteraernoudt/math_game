@@ -325,6 +325,11 @@
                                 <img src="{{ game_data.get('item_image') }}" alt="Item image" style="max-height:320px; object-fit:contain; width:100%;">
                             </div>
                             <div style="display:flex; flex-direction:column; gap:12px;">
+                                {% if request.args.get('debug_counts') %}
+                                <div style="font-size:12px; color:#f87171; background:rgba(255,255,255,0.06); padding:6px; border-radius:8px;">
+                                    DEBUG submit payload: {{ session.get('last_submit_payload') }}
+                                </div>
+                                {% endif %}
                                 <div>
                                     <div style="font-size: 42px; font-weight: 900;">${{ game_data.get('item_price', 0) }}</div>
                                     {% if game_data.get('show_tax', True) %}
@@ -377,11 +382,29 @@
                                 <div class="msg incorrect">Try again with fewer bills. Aim for the smallest stack that hits the total.</div>
                             </div>
                         {% endif %}
+                        {% if request.args.get('debug_counts') and session.history %}
+                        <div class="messages" style="margin-top:8px; font-size:12px; text-align:left; background:rgba(255,255,255,0.05); color:#f87171;">
+                            <strong>DEBUG recent payloads:</strong>
+                            <div>last_submit_payload: {{ session.get('last_submit_payload') }}</div>
+                            <div>engine_last_result: {{ session.get('engine_last_result') }}</div>
+                            <div>engine_submit_debug: {{ session.get('engine_submit_debug') }}</div>
+                            {% set last = session.history[-1] %}
+                            <div>last raw_answer: {{ last.raw_answer if last else '' }}</div>
+                            <div>last debug_payload: {{ last.debug_payload if last else '' }}</div>
+                            <div>last user_counts: {{ last.user_counts if last else '' }}</div>
+                            <div>last best_counts: {{ last.best_counts if last else '' }}</div>
+                        </div>
+                        {% endif %}
                     </div>
 
                     <div>
                         <form method="POST" id="money-form">
                             <input type="hidden" name="answer" id="answer-field" value="20:0,10:0,5:0,1:0">
+                            <input type="hidden" id="debug_payload" name="debug_payload" value="">
+                            <input type="hidden" id="count-20" name="count_20" value="0">
+                            <input type="hidden" id="count-10" name="count_10" value="0">
+                            <input type="hidden" id="count-5" name="count_5" value="0">
+                            <input type="hidden" id="count-1" name="count_1" value="0">
                             <div class="bills" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
                                 {% for denom, img in {20:'/static/bills/20.jpg',10:'/static/bills/10.jpg',5:'/static/bills/5.jpg',1:'/static/bills/1.jpg'}.items() %}
                                 <div class="bill-card" data-denom="{{ denom }}">
@@ -514,6 +537,23 @@
                                         <option value="false" {% if not req_min_val %}selected{% endif %}>No</option>
                                     </select>
                                 </div>
+                                <div style="display:flex; flex-direction:column; gap:6px;">
+                                    <label for="allow_overpay">Allow overpay?</label>
+                                    {% set allow_overpay_val = game_config.get('allow_overpay', default_config.get('allow_overpay', False)) %}
+                                    <select id="allow_overpay" name="allow_overpay">
+                                        <option value="true" {% if allow_overpay_val %}selected{% endif %}>Yes</option>
+                                        <option value="false" {% if not allow_overpay_val %}selected{% endif %}>No (only when exact is impossible)</option>
+                                    </select>
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:6px;">
+                                    <label for="bill_limit_mode">Bill availability</label>
+                                    <select id="bill_limit_mode" name="bill_limit_mode">
+                                        {% set limit_mode = game_config.get('bill_limit_mode', default_config.get('bill_limit_mode', 'easy')) %}
+                                        <option value="easy" {% if limit_mode == 'easy' %}selected{% endif %}>Easy (unlimited)</option>
+                                        <option value="intermediate" {% if limit_mode == 'intermediate' %}selected{% endif %}>Intermediate (fixed limits)</option>
+                                        <option value="hard" {% if limit_mode == 'hard' %}selected{% endif %}>Hard (random limits)</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="actions" style="margin-top:16px;">
                                 <button type="submit" name="action" value="start_game" class="btn btn-primary">Start game</button>
@@ -526,16 +566,68 @@
     <script>
         (function(){
             const counts = {20: 0, 10: 0, 5: 0, 1: 0};
+            const maxCounts = {{ game_state.available_counts if game_state and game_state.get('available_counts') else session.games[game_id].get('available_counts', {'20':999,'10':999,'5':999,'1':999})|tojson }};
+            const pendingToUsed = {20:0, 10:0, 5:0, 1:0};   // bills in-flight from avail -> used
+            const pendingToAvail = {20:0, 10:0, 5:0, 1:0};  // bills in-flight from used -> avail
             const answerField = document.getElementById('answer-field');
             const selectedTotal = document.getElementById('selected-total');
             const deltaEl = document.getElementById('delta');
             const needed = parseFloat('{{ "%.2f"|format(session.games[game_id].get("total_due", 0) if game_active else 0) }}');
+            const debugCounts = {{ 'true' if request.args.get('debug_counts') else 'false' }};
+            let debugBox = null;
+            if (debugCounts) {
+                debugBox = document.createElement('div');
+                debugBox.id = 'debug-counts';
+                debugBox.style.position = 'fixed';
+                debugBox.style.bottom = '10px';
+                debugBox.style.right = '10px';
+                debugBox.style.background = 'rgba(0,0,0,0.7)';
+                debugBox.style.color = '#fff';
+                debugBox.style.padding = '8px';
+                debugBox.style.fontSize = '12px';
+                debugBox.style.maxWidth = '360px';
+                debugBox.style.zIndex = '9999';
+                debugBox.style.borderRadius = '8px';
+                document.body.appendChild(debugBox);
+            }
 
             function syncAnswer() {
                 if (answerField) {
                     answerField.value = `20:${counts[20]},10:${counts[10]},5:${counts[5]},1:${counts[1]}`;
                 }
+                const c20 = document.getElementById('count-20');
+                const c10 = document.getElementById('count-10');
+                const c5 = document.getElementById('count-5');
+                const c1 = document.getElementById('count-1');
+                if (c20) c20.value = counts[20];
+                if (c10) c10.value = counts[10];
+                if (c5) c5.value = counts[5];
+                if (c1) c1.value = counts[1];
             }
+
+            function updateDebug(effCounts) {
+                if (!debugCounts || !debugBox) return;
+                const eff = effCounts || counts;
+                const payloadInput = document.getElementById('debug_payload');
+                if (payloadInput) {
+                    payloadInput.value = JSON.stringify({
+                        counts,
+                        pendingToUsed,
+                        pendingToAvail,
+                        maxCounts,
+                        effective: eff,
+                        answer: answerField ? answerField.value : ''
+                    });
+                }
+                debugBox.innerText =
+                    `counts=${JSON.stringify(counts)} | ` +
+                    `pendingToUsed=${JSON.stringify(pendingToUsed)} | ` +
+                    `pendingToAvail=${JSON.stringify(pendingToAvail)} | ` +
+                    `max=${JSON.stringify(maxCounts)} | ` +
+                    `effective=${JSON.stringify(eff)} | ` +
+                    `answer=${answerField ? answerField.value : ''}`;
+            }
+
 
             function updateTotals() {
                 const total = counts[20]*20 + counts[10]*10 + counts[5]*5 + counts[1];
@@ -551,20 +643,24 @@
                     el.textContent = counts[denom];
                 });
                 syncAnswer();
+                updateDebug();
             }
 
             function renderStacks() {
                 [20,10,5,1].forEach(denom => {
                     const available = document.querySelector(`[data-stack="${denom}"]`);
                     const used = document.querySelector(`[data-used="${denom}"]`);
-                    if (available) buildStack(available, 5, denom, false);
-                    if (used) buildStack(used, counts[denom], denom, true);
+                    const max = Number(maxCounts[String(denom)] ?? maxCounts[denom] ?? 999);
+                    const remaining = Math.max(0, max - counts[denom] - pendingToUsed[denom] + pendingToAvail[denom]);
+                    const usedCount = Math.max(0, counts[denom]); // only show committed in used
+                    if (available) buildStack(available, remaining, denom, false);
+                    if (used) buildStack(used, usedCount, denom, true);
                 });
             }
 
             function buildStack(container, count, denom, isUsed) {
                 container.innerHTML = '';
-                const layers = Math.max(count, isUsed ? 0 : 3);
+                const layers = Math.max(0, count);
                 for (let i = 0; i < layers; i++) {
                     const layer = document.createElement('div');
                     layer.className = 'bill-layer';
@@ -605,7 +701,8 @@
             }
 
             function changeCount(denom, dir, skipRender=false) {
-                counts[denom] = Math.max(0, counts[denom] + dir);
+                const max = Number(maxCounts[String(denom)] ?? maxCounts[denom] ?? 999);
+                counts[denom] = Math.max(0, Math.min(max, counts[denom] + dir));
                 if (!skipRender) {
                     renderStacks();
                     updateTotals();
@@ -618,17 +715,38 @@
                 const stack = e.currentTarget;
                 const denom = Number(stack.getAttribute('data-denom'));
                 const action = stack.getAttribute('data-action');
+                const max = Number(maxCounts[String(denom)] ?? maxCounts[denom] ?? 999);
                 if (action === 'add') {
+                    if (counts[denom] + pendingToUsed[denom] >= max) return;
                     const used = document.querySelector(`.stack.used[data-denom="${denom}"]`);
-                    flyBill(denom, stack, used, () => changeCount(denom, 1));
+                    pendingToUsed[denom] += 1;
+                    renderStacks();
+                    updateTotals(); // totals still based on committed counts; ok
+                    updateDebug();
+                    flyBill(denom, stack, used, () => {
+                        pendingToUsed[denom] = Math.max(0, pendingToUsed[denom]-1);
+                        counts[denom] = Math.min(max, counts[denom] + 1);
+                        updateTotals();
+                        renderStacks();
+                        syncAnswer();
+                        updateDebug();
+                    });
                 } else if (action === 'remove') {
                     if (counts[denom] <= 0) return;
                     const avail = document.querySelector(`.stack.available[data-denom="${denom}"]`);
-                    // Drop the bill immediately so the stack reflects the change during animation
-                    changeCount(denom, -1, true);
-                    renderStacks();
+                    counts[denom] = Math.max(0, counts[denom] - 1);
+                    pendingToAvail[denom] += 1;
                     updateTotals();
-                    flyBill(denom, stack, avail);
+                    renderStacks();
+                    syncAnswer();
+                    updateDebug();
+                    flyBill(denom, stack, avail, () => {
+                        pendingToAvail[denom] = Math.max(0, pendingToAvail[denom]-1);
+                        updateTotals();
+                        renderStacks();
+                        syncAnswer();
+                        updateDebug();
+                    });
                 }
             }
 
@@ -642,8 +760,27 @@
                 clearBtn.addEventListener('click', (e) => {
                     e.preventDefault();
                     counts[20] = counts[10] = counts[5] = counts[1] = 0;
+                    pendingToUsed[20] = pendingToUsed[10] = pendingToUsed[5] = pendingToUsed[1] = 0;
+                    pendingToAvail[20] = pendingToAvail[10] = pendingToAvail[5] = pendingToAvail[1] = 0;
                     renderStacks();
                     updateTotals();
+                });
+            }
+
+            const moneyForm = document.getElementById('money-form');
+            if (moneyForm) {
+                moneyForm.addEventListener('submit', () => {
+                    const eff = {20:0,10:0,5:0,1:0};
+                    [20,10,5,1].forEach(denom => {
+                        const base = counts[denom] || 0;
+                        const net = (pendingToUsed[denom] || 0) - (pendingToAvail[denom] || 0);
+                        const max = Number(maxCounts[String(denom)] ?? maxCounts[denom] ?? 999);
+                        eff[denom] = Math.max(0, Math.min(max, base + net));
+                    });
+                    if (answerField) {
+                        answerField.value = `20:${eff[20]},10:${eff[10]},5:${eff[5]},1:${eff[1]}`;
+                    }
+                    updateDebug(eff);
                 });
             }
 

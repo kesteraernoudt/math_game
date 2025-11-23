@@ -208,6 +208,12 @@ def game(game_id):
                 return redirect(url_for('game', game_id=game_id))
         
         elif 'answer' in request.form and game_state['active']:
+            # Debug capture of raw submit payload
+            try:
+                session['last_submit_payload'] = request.form.to_dict(flat=True)
+            except Exception:
+                session['last_submit_payload'] = {}
+            session['debug_payload'] = request.form.get('debug_payload')
             answer = request.form['answer']
             session['last_answer'] = answer
             
@@ -217,6 +223,31 @@ def game(game_id):
             
             # Process the answer
             is_correct, state = engine.submit_answer(answer)
+            # Fallback: if the engine says incorrect but counts/pay match the best combo exactly, treat as correct
+            try:
+                lr = engine.get_last_result()
+                if (
+                    not is_correct
+                    and lr
+                    and lr.get("counts") == lr.get("best_combo")
+                    and lr.get("user_total") == lr.get("pay_total")
+                ):
+                    is_correct = True
+                    engine.score += 1
+                    engine.current_round += 1
+                    if hasattr(engine, "_awaiting_retry"):
+                        engine._awaiting_retry = False
+                    state = engine.get_game_state()
+            except Exception:
+                pass
+            try:
+                session['engine_last_result'] = engine.get_last_result()
+            except Exception:
+                session['engine_last_result'] = {}
+            try:
+                session['engine_submit_debug'] = getattr(engine, "_last_result", {})
+            except Exception:
+                session['engine_submit_debug'] = {}
             ui.display_result(is_correct)
             
             # Add to history (game-specific)

@@ -13,9 +13,12 @@ class MoneyGameHandler(BaseGameHandler):
         last_result = {}
         if hasattr(self.engine, "get_last_result"):
             last_result = self.engine.get_last_result()
-        counts = last_result.get("counts", {})
+        counts_raw = last_result.get("counts", {})
+        # When stored in the session, dict keys become strings; normalize to ints for display
+        counts = {int(k): v for k, v in counts_raw.items()} if counts_raw else {}
         user_total = last_result.get("user_total")
-        best_combo = last_result.get("best_combo") or {}
+        best_raw = last_result.get("best_combo") or {}
+        best_combo = {int(k): v for k, v in best_raw.items()} if best_raw else {}
         total_due = last_result.get("total_due") or last_round.get("total_due")
         
         return {
@@ -29,6 +32,8 @@ class MoneyGameHandler(BaseGameHandler):
             "is_correct": is_correct,
             "show_tax": last_round.get("show_tax", True),
             "skipped": False,
+            "raw_answer": answer,
+            "debug_payload": session.get("debug_payload"),
         }
     
     def save_state_to_session(self, game_state: Dict[str, Any], new_state) -> None:
@@ -41,6 +46,8 @@ class MoneyGameHandler(BaseGameHandler):
         game_state["show_tax"] = new_state.show_tax
         game_state["item_image"] = new_state.item_image
         game_state["awaiting_retry"] = new_state.awaiting_retry
+        if hasattr(new_state, "available_counts"):
+            game_state["available_counts"] = new_state.available_counts
     
     def get_initial_state(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Initial state structure for the money game."""
@@ -58,6 +65,7 @@ class MoneyGameHandler(BaseGameHandler):
             "show_tax": config.get("show_tax", True),
             "item_image": "",
             "awaiting_retry": False,
+            "available_counts": {20: 999, 10: 999, 5: 999, 1: 999},
         }
     
     def save_pre_answer_state(self, game_state: Dict[str, Any]) -> None:
@@ -84,7 +92,7 @@ class MoneyGameHandler(BaseGameHandler):
             show_tax = last_result.get("show_tax", False)
 
             if is_correct:
-                if show_tax:
+                if show_tax or change > 0:
                     ui._messages[-1] = f"Correct! Total was ${total_due:.2f}; You paid ${user_total:.2f} and received change ${change:.2f}"
                 else:
                     ui._messages[-1] = f"Correct! Total was ${total_due:.2f}; You paid ${user_total:.2f}"
