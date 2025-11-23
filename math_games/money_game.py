@@ -30,13 +30,15 @@ class MoneyGameEngine(BaseGameEngine):
         rounds: int = 10,
         tax_rate: float = 0.08,
         show_tax: bool = True,
+        require_minimal_bills: bool = False,
         **kwargs: Any,
     ):
-        super().__init__(max_price=max_price, rounds=rounds, tax_rate=tax_rate, show_tax=show_tax, **kwargs)
+        super().__init__(max_price=max_price, rounds=rounds, tax_rate=tax_rate, show_tax=show_tax, require_minimal_bills=require_minimal_bills, **kwargs)
         self.max_price = max_price
         self.rounds = rounds
         self.tax_rate = tax_rate
         self.show_tax = show_tax
+        self.require_minimal_bills = require_minimal_bills
         self.score = 0
         self.current_round = 0
         self._item_name: Optional[str] = None
@@ -179,7 +181,10 @@ class MoneyGameEngine(BaseGameEngine):
         )
         pay_total = math.ceil(self._total_due)
         best_combo = self._best_combo(self._total_due)
-        is_correct = user_total == pay_total and counts == best_combo
+        if self.require_minimal_bills:
+            is_correct = user_total == pay_total and counts == best_combo
+        else:
+            is_correct = user_total == pay_total
 
         self._last_result = {
             "counts": counts,
@@ -218,6 +223,7 @@ class MoneyGameEngine(BaseGameEngine):
             "rounds": 8,
             "tax_rate": 0.08,
             "show_tax": False,
+            "require_minimal_bills": False,
         }
 
     def get_game_name(self) -> str:
@@ -247,6 +253,7 @@ class MoneyGameEngine(BaseGameEngine):
                 "rounds": self.rounds,
                 "tax_rate": self.tax_rate,
                 "show_tax": self.show_tax,
+                "require_minimal_bills": self.require_minimal_bills,
             },
         }
 
@@ -267,4 +274,5 @@ class MoneyGameEngine(BaseGameEngine):
         self.rounds = config.get("rounds", self.rounds)
         self.tax_rate = config.get("tax_rate", self.tax_rate)
         self.show_tax = config.get("show_tax", self.show_tax)
+        self.require_minimal_bills = config.get("require_minimal_bills", self.require_minimal_bills)
         self._config = config
