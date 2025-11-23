@@ -67,7 +67,8 @@ def extract_config_from_form(game_class, request_form):
     
     for key in default_config.keys():
         if key in request_form:
-            value = request_form.get(key)
+            values = request_form.getlist(key)
+            value = values[-1] if isinstance(values, list) and values else request_form.get(key)
             if value is not None:
                 # Try to convert to appropriate type
                 default_value = default_config[key]

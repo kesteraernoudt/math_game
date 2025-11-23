@@ -24,24 +24,24 @@
         }
         .header h1 {
             color: var(--text);
-            font-size: 48px;
-            margin-bottom: 10px;
+            font-size: 56px;
+            margin-bottom: 12px;
         }
         .header p {
             color: var(--muted);
-            font-size: 18px;
+            font-size: 22px;
         }
         .games-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-            gap: 32px;
-            margin-top: 40px;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 36px;
+            margin-top: 44px;
         }
         .game-card {
             background-color: var(--panel);
-            border-radius: 15px;
-            padding: 26px;
-            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+            border-radius: 18px;
+            padding: 30px;
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.38);
             border: 1px solid rgba(255,255,255,0.08);
             transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
             cursor: pointer;
@@ -58,13 +58,14 @@
         .game-card h2 {
             color: var(--text);
             margin-top: 0;
-            margin-bottom: 14px;
-            font-size: 30px;
+            margin-bottom: 16px;
+            font-size: 34px;
         }
         .game-card p {
             color: var(--muted);
             line-height: 1.6;
-            margin-bottom: 22px;
+            margin-bottom: 24px;
+            font-size: 18px;
         }
         .game-thumb {
             height: 210px;
@@ -94,12 +95,13 @@
         }
         .game-card .play-button {
             display: inline-block;
-            padding: 12px 24px;
+            padding: 16px 32px;
             background-color: var(--accent);
             color: white;
-            border-radius: 8px;
+            border-radius: 10px;
             text-decoration: none;
             font-weight: bold;
+            font-size: 18px;
             transition: background-color 0.2s, transform 0.2s;
         }
         .game-card .play-button:hover {

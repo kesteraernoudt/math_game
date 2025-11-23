@@ -275,7 +275,7 @@
         .history-item small { color: var(--muted); }
         .config-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 12px;
             margin-top: 12px;
         }
@@ -289,6 +289,17 @@
             color: #f8fafc;
             font-size: 15px;
             appearance: none;
+        }
+        .config-grid input[type="checkbox"] {
+            width: 26px;
+            height: 26px;
+            padding: 0;
+            margin: 0;
+            appearance: auto;
+            accent-color: #22c55e;
+            background: transparent;
+            border: none;
+            cursor: pointer;
         }
         .config-grid option { background: #0e213d; color: #f8fafc; }
         .endcard { text-align: center; }
@@ -508,46 +519,41 @@
                     </div>
                 </div>
                         <form method="POST">
-                            <div class="config-grid" style="align-items:flex-start;">
-                                <div style="display:flex; flex-direction:column; gap:6px;">
-                                    <label for="show_tax" style="margin-bottom:2px;">Display sales tax?</label>
-                                    <select id="show_tax" name="show_tax">
-                                        {% set show_tax_val = game_config.get('show_tax', default_config.get('show_tax', True)) %}
-                                        <option value="true" {% if show_tax_val %}selected{% endif %}>Yes</option>
-                                        <option value="false" {% if not show_tax_val %}selected{% endif %}>No</option>
-                                    </select>
-                                    <div id="tax_rate_wrap" style="margin-top:6px;">
-                                        <label for="tax_rate" style="margin-bottom:2px;">Sales tax rate</label>
-                                        <input type="number" step="0.00001" min="0" id="tax_rate" name="tax_rate" value="{{ game_config.get('tax_rate', default_config.get('tax_rate', 0.08)) }}">
+                            <div class="config-grid" style="align-items:flex-start; gap:18px; font-size:18px;">
+                                <div style="display:flex; flex-direction:column; gap:10px; padding:6px 0;">
+                                    {% set show_tax_val = game_config.get('show_tax', default_config.get('show_tax', True)) %}
+                                    <label style="display:flex; align-items:center; gap:12px; font-size:20px; font-weight:700; cursor:pointer;" for="show_tax">
+                                        <input type="checkbox" id="show_tax" name="show_tax" value="true" {% if show_tax_val %}checked{% endif %}>
+                                        <span>Display sales tax</span>
+                                    </label>
+                                    <div id="tax_rate_wrap" style="margin-top:8px; {% if not show_tax_val %}display:none;{% endif %}">
+                                        <label for="tax_rate" style="margin-bottom:4px; font-size:18px;">Sales tax rate</label>
+                                        <input type="number" step="0.00001" min="0" id="tax_rate" name="tax_rate" value="{{ game_config.get('tax_rate', default_config.get('tax_rate', 0.08)) }}" style="font-size:18px; padding:12px; border-radius:10px;">
                                     </div>
                                 </div>
-                                <div style="display:flex; flex-direction:column; gap:6px;">
-                                    <label for="rounds">Rounds</label>
-                                    <input type="number" id="rounds" name="rounds" min="1" value="{{ game_config.get('rounds', default_config.get('rounds', 8)) }}" required>
+                                <div style="display:flex; flex-direction:column; gap:10px; padding:6px 0;">
+                                    <label for="rounds" style="font-size:20px; font-weight:700;">Rounds</label>
+                                    <input type="number" id="rounds" name="rounds" min="1" value="{{ game_config.get('rounds', default_config.get('rounds', 8)) }}" required style="font-size:18px; padding:12px; border-radius:10px;">
                                 </div>
-                                <div style="display:flex; flex-direction:column; gap:6px;">
-                                    <label for="max_price">Max item price</label>
-                                    <input type="number" id="max_price" name="max_price" min="1" value="{{ game_config.get('max_price', default_config.get('max_price', 50)) }}" required>
+                                <div style="display:flex; flex-direction:column; gap:10px; padding:6px 0;">
+                                    <label for="max_price" style="font-size:20px; font-weight:700;">Max item price</label>
+                                    <input type="number" id="max_price" name="max_price" min="1" value="{{ game_config.get('max_price', default_config.get('max_price', 50)) }}" required style="font-size:18px; padding:12px; border-radius:10px;">
                                 </div>
-                                <div style="display:flex; flex-direction:column; gap:6px;">
-                                    <label for="require_minimal_bills">Require fewest bills?</label>
-                                    <select id="require_minimal_bills" name="require_minimal_bills">
-                                        {% set req_min_val = game_config.get('require_minimal_bills', default_config.get('require_minimal_bills', False)) %}
-                                        <option value="true" {% if req_min_val %}selected{% endif %}>Yes</option>
-                                        <option value="false" {% if not req_min_val %}selected{% endif %}>No</option>
-                                    </select>
-                                </div>
-                                <div style="display:flex; flex-direction:column; gap:6px;">
-                                    <label for="allow_overpay">Allow overpay?</label>
+                                <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center; padding:6px 0;">
+                                    {% set req_min_val = game_config.get('require_minimal_bills', default_config.get('require_minimal_bills', False)) %}
+                                    <label style="display:flex; align-items:center; gap:10px; font-size:20px; font-weight:700; cursor:pointer;" for="require_minimal_bills">
+                                        <input type="checkbox" id="require_minimal_bills" name="require_minimal_bills" value="true" {% if req_min_val %}checked{% endif %}>
+                                        <span>Require fewest bills</span>
+                                    </label>
                                     {% set allow_overpay_val = game_config.get('allow_overpay', default_config.get('allow_overpay', False)) %}
-                                    <select id="allow_overpay" name="allow_overpay">
-                                        <option value="true" {% if allow_overpay_val %}selected{% endif %}>Yes</option>
-                                        <option value="false" {% if not allow_overpay_val %}selected{% endif %}>No (only when exact is impossible)</option>
-                                    </select>
+                                    <label style="display:flex; align-items:center; gap:10px; font-size:20px; font-weight:700; cursor:pointer;" for="allow_overpay">
+                                        <input type="checkbox" id="allow_overpay" name="allow_overpay" value="true" {% if allow_overpay_val %}checked{% endif %}>
+                                        <span>Allow overpay</span>
+                                    </label>
                                 </div>
-                                <div style="display:flex; flex-direction:column; gap:6px;">
-                                    <label for="bill_limit_mode">Bill availability</label>
-                                    <select id="bill_limit_mode" name="bill_limit_mode">
+                                <div style="display:flex; flex-direction:column; gap:10px; padding:6px 0;">
+                                    <label for="bill_limit_mode" style="font-size:20px; font-weight:700;">Bill availability</label>
+                                    <select id="bill_limit_mode" name="bill_limit_mode" style="font-size:18px; padding:12px; border-radius:10px;">
                                         {% set limit_mode = game_config.get('bill_limit_mode', default_config.get('bill_limit_mode', 'easy')) %}
                                         <option value="easy" {% if limit_mode == 'easy' %}selected{% endif %}>Easy (unlimited)</option>
                                         <option value="intermediate" {% if limit_mode == 'intermediate' %}selected{% endif %}>Intermediate (fixed limits)</option>
@@ -555,8 +561,8 @@
                                     </select>
                                 </div>
                             </div>
-                            <div class="actions" style="margin-top:16px;">
-                                <button type="submit" name="action" value="start_game" class="btn btn-primary">Start game</button>
+                            <div class="actions" style="margin-top:18px;">
+                                <button type="submit" name="action" value="start_game" class="btn btn-primary" style="font-size:20px; padding:14px 22px;">Start game</button>
                             </div>
                         </form>
             {% endif %}
@@ -784,12 +790,12 @@
                 });
             }
 
-            // Show/hide tax rate input based on dropdown in config
+            // Show/hide tax rate input based on checkbox in config
             const showTaxSel = document.getElementById('show_tax');
             const taxWrap = document.getElementById('tax_rate_wrap');
             if (showTaxSel && taxWrap) {
                 const syncTax = () => {
-                    taxWrap.style.display = (showTaxSel.value === 'true') ? 'block' : 'none';
+                    taxWrap.style.display = showTaxSel.checked ? 'block' : 'none';
                 };
                 showTaxSel.addEventListener('change', syncTax);
                 syncTax();
