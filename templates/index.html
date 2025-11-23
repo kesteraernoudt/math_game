@@ -3,24 +3,32 @@
 <head>
     <title>Math Games</title>
     <style>
+        :root {
+            --bg: #0b1220;
+            --panel: #0e213d;
+            --text: #f8fafc;
+            --muted: #cbd5e1;
+            --accent: #3498db;
+        }
         body {
             font-family: Arial, sans-serif;
-            max-width: 1000px;
+            max-width: 1100px;
             margin: 0 auto;
             padding: 20px;
-            background-color: #f5f5f5;
+            background: radial-gradient(circle at 15% 20%, #1f2f4f, var(--bg) 60%);
+            color: var(--text);
         }
         .header {
             text-align: center;
             margin-bottom: 40px;
         }
         .header h1 {
-            color: #2c3e50;
+            color: var(--text);
             font-size: 48px;
             margin-bottom: 10px;
         }
         .header p {
-            color: #7f8c8d;
+            color: var(--muted);
             font-size: 18px;
         }
         .games-grid {
@@ -30,11 +38,12 @@
             margin-top: 40px;
         }
         .game-card {
-            background-color: white;
+            background-color: var(--panel);
             border-radius: 15px;
             padding: 30px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255,255,255,0.08);
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
             cursor: pointer;
             text-decoration: none;
             color: inherit;
@@ -42,31 +51,33 @@
         }
         .game-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+            border-color: rgba(255,255,255,0.16);
         }
         .game-card h2 {
-            color: #2c3e50;
+            color: var(--text);
             margin-top: 0;
             margin-bottom: 15px;
             font-size: 28px;
         }
         .game-card p {
-            color: #7f8c8d;
+            color: var(--muted);
             line-height: 1.6;
             margin-bottom: 20px;
         }
         .game-card .play-button {
             display: inline-block;
             padding: 12px 24px;
-            background-color: #3498db;
+            background-color: var(--accent);
             color: white;
             border-radius: 8px;
             text-decoration: none;
             font-weight: bold;
-            transition: background-color 0.2s;
+            transition: background-color 0.2s, transform 0.2s;
         }
         .game-card .play-button:hover {
             background-color: #2980b9;
+            transform: translateY(-2px);
         }
     </style>
 </head>

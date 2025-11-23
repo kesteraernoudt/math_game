@@ -60,10 +60,10 @@ class MoneyGameEngine(BaseGameEngine):
             {"name": "Family Taco Pack", "min_price": 18, "max_price": 38, "color": "#f97316", "emoji": "🌯"},
             {"name": "Party Sub Tray", "min_price": 24, "max_price": 45, "color": "#f59e0b", "emoji": "🥪"},
             {"name": "Sushi Platter", "min_price": 22, "max_price": 48, "color": "#2563eb", "emoji": "🍣"},
-            {"name": "Steak Dinner", "min_price": 25, "max_price": 60, "color": "#b91c1c", "emoji": "🥩"},
-            {"name": "Seafood Bucket", "min_price": 20, "max_price": 55, "color": "#0ea5e9", "emoji": "🦐"},
-            {"name": "BBQ Feast", "min_price": 28, "max_price": 65, "color": "#ea580c", "emoji": "🍖"},
-            {"name": "Grocery Cart", "min_price": 25, "max_price": 70, "color": "#059669", "emoji": "🛒"},
+            {"name": "Steak Dinner", "min_price": 25, "max_price": 50, "color": "#b91c1c", "emoji": "🥩"},
+            {"name": "Seafood Bucket", "min_price": 20, "max_price": 50, "color": "#0ea5e9", "emoji": "🦐"},
+            {"name": "BBQ Feast", "min_price": 28, "max_price": 50, "color": "#ea580c", "emoji": "🍖"},
+            {"name": "Grocery Cart", "min_price": 25, "max_price": 50, "color": "#059669", "emoji": "🛒"},
             {"name": "Picnic Pack", "min_price": 15, "max_price": 40, "color": "#4f46e5", "emoji": "🧺"},
             {"name": "Veggie Burger", "min_price": 7, "max_price": 16, "color": "#3b8c5a", "emoji": "🥗"},
             {"name": "Falafel Wrap", "min_price": 6, "max_price": 15, "color": "#2f855a", "emoji": "🥙"},
@@ -71,6 +71,16 @@ class MoneyGameEngine(BaseGameEngine):
             {"name": "Veggie Sushi Roll", "min_price": 8, "max_price": 18, "color": "#0ea5e9", "emoji": "🥒"},
             {"name": "Caprese Salad", "min_price": 6, "max_price": 14, "color": "#ef4444", "emoji": "🥬"},
             {"name": "Mediterranean Bowl", "min_price": 12, "max_price": 26, "color": "#f59e0b", "emoji": "🥗"},
+            {"name": "Soda", "min_price": 2, "max_price": 6, "color": "#2563eb", "emoji": "🥤"},
+            {"name": "Diet Soda", "min_price": 2, "max_price": 6, "color": "#0ea5e9", "emoji": "🥤"},
+            {"name": "Popcorn Bucket", "min_price": 4, "max_price": 12, "color": "#f59e0b", "emoji": "🍿"},
+            {"name": "Kettle Corn", "min_price": 5, "max_price": 14, "color": "#fbbf24", "emoji": "🍿"},
+            {"name": "Chocolate Candy", "min_price": 3, "max_price": 10, "color": "#7c3aed", "emoji": "🍫"},
+            {"name": "Gummy Candy", "min_price": 3, "max_price": 10, "color": "#10b981", "emoji": "🍬"},
+            {"name": "Sugar-Free Candy", "min_price": 3, "max_price": 10, "color": "#a855f7", "emoji": "🍭"},
+            {"name": "Cupcake", "min_price": 4, "max_price": 12, "color": "#f472b6", "emoji": "🧁"},
+            {"name": "Slice of Cake", "min_price": 5, "max_price": 14, "color": "#fb7185", "emoji": "🍰"},
+            {"name": "Diet Chocolate Bar", "min_price": 3, "max_price": 10, "color": "#8b5cf6", "emoji": "🍫"},
         ]
         random.seed(datetime.now().timestamp())
 
@@ -193,6 +203,8 @@ class MoneyGameEngine(BaseGameEngine):
             "user_total": user_total,
             "total_due": self._total_due,
             "pay_total": pay_total,
+            "is_correct": is_correct,
+            "show_tax": self.show_tax,
         }
 
         if is_correct:

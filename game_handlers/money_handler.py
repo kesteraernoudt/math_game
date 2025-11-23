@@ -79,15 +79,24 @@ class MoneyGameHandler(BaseGameHandler):
             user_total = last_result.get("user_total")
             total_due = last_result.get("total_due")
             pay_total = last_result.get("pay_total", total_due)
-            change = user_total - pay_total
+            change = user_total - total_due
+            is_correct = last_result.get("is_correct", False)
+            show_tax = last_result.get("show_tax", False)
+
+            if is_correct:
+                if show_tax:
+                    ui._messages[-1] = f"Correct! Total was ${total_due:.2f}; You paid ${user_total:.2f} and received change ${change:.2f}"
+                else:
+                    ui._messages[-1] = f"Correct! Total was ${total_due:.2f}; You paid ${user_total:.2f}"
+
             ui._messages.append(
                 f"You used ${user_total} with {counts.get(20,0)}x$20, {counts.get(10,0)}x$10, {counts.get(5,0)}x$5, {counts.get(1,0)}x$1."
             )
             ui._messages.append(
                 f"Best is ${pay_total} with {best_combo.get(20,0)}x$20, {best_combo.get(10,0)}x$10, {best_combo.get(5,0)}x$5, {best_combo.get(1,0)}x$1."
             )
-            if change > 0:
-                ui._messages.append(f"Change back: ${round(change, 2)}")
+            if is_correct and show_tax:
+                ui._messages.append(f"Change back: ${change:.2f}")
     
     def handle_skip_round(self, game_state: Dict[str, Any]) -> None:
         """Skip the current round and update session state."""
