@@ -303,6 +303,37 @@
         }
         .config-grid option { background: #0e213d; color: #f8fafc; }
         .endcard { text-align: center; }
+        .money-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .info-col {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex: 1;
+            min-width: 280px;
+        }
+        .stacks-col {
+            flex: 1;
+        }
+        .stacks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+        @media (orientation: landscape) {
+            .money-layout { flex-direction: row; align-items: flex-start; }
+            .info-col { max-width: 520px; }
+            .stacks-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
+            .item-card img { max-height: 240px; }
+            .bill-card { padding: 10px; }
+            .stack-row { height: 140px; }
+            .bill-stack[data-stack], .bill-stack[data-used] { height: 120px; }
+            .actions { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+            .panel { padding: 16px; }
+        }
         @media (max-width: 900px) {
             .grid { grid-template-columns: 1fr; }
             .history-item { grid-template-columns: 1fr; }
@@ -328,21 +359,21 @@
                     </div>
                 </div>
 
-                <div class="grid">
-                    <div>
+                <div class="money-layout">
+                    <div class="info-col">
                         {% set require_minimal = game_config.get('require_minimal_bills', default_config.get('require_minimal_bills', False)) %}
-                        <div style="display:grid; grid-template-columns: minmax(260px, 1.2fr) minmax(220px, 0.8fr); gap:18px; align-items:start;">
+                        <div style="display:grid; grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.8fr); gap:14px; align-items:start;">
                             <div class="item-card">
-                                <img src="{{ game_data.get('item_image') }}" alt="Item image" style="max-height:320px; object-fit:contain; width:100%;">
+                                <img src="{{ game_data.get('item_image') }}" alt="Item image" style="max-height:280px; object-fit:contain; width:100%;">
                             </div>
-                            <div style="display:flex; flex-direction:column; gap:12px;">
+                            <div style="display:flex; flex-direction:column; gap:10px;">
                                 {% if request.args.get('debug_counts') %}
                                 <div style="font-size:12px; color:#f87171; background:rgba(255,255,255,0.06); padding:6px; border-radius:8px;">
                                     DEBUG submit payload: {{ session.get('last_submit_payload') }}
                                 </div>
                                 {% endif %}
                                 <div>
-                                    <div style="font-size: 42px; font-weight: 900;">${{ game_data.get('item_price', 0) }}</div>
+                                    <div style="font-size: 40px; font-weight: 900;">${{ game_data.get('item_price', 0) }}</div>
                                     {% if game_data.get('show_tax', True) %}
                                         {% set tax_rate_val = game_data.get('tax_rate', default_config.get('tax_rate', 0.08)) %}
                                         {% set tax_amount_val = game_data.get('tax_amount', 0) %}
@@ -356,23 +387,23 @@
                                     </div>
                                     {% endif %}
                                 </div>
-                            <div class="pill total-due" style="background: linear-gradient(135deg, #eab308, #f59e0b); color: #0f172a; border: none; font-size: 24px; padding:16px 20px; box-shadow: 0 10px 18px rgba(0,0,0,0.28); justify-content:space-between; min-width: 220px;">
-                                <span class="label" style="color:#0f172a;">Total Due</span>
-                                <span style="font-weight:900; font-size:36px;">${{ '%.2f' % game_data.get('total_due', 0) }}</span>
-                            </div>
-                        <div class="totals" style="width:100%; display:flex; flex-direction:column; gap:10px;">
-                            <div class="pill">
-                                <span class="label">You selected</span>
-                                <span id="selected-total">$0</span>
-                            </div>
-                                <div class="pill">
-                                    <span class="label">Difference</span>
-                                    <span id="delta" class="delta bad">$0</span>
+                                <div class="pill total-due" style="background: linear-gradient(135deg, #eab308, #f59e0b); color: #0f172a; border: none; font-size: 24px; padding:16px 20px; box-shadow: 0 10px 18px rgba(0,0,0,0.28); justify-content:space-between; min-width: 220px;">
+                                    <span class="label" style="color:#0f172a;">Total Due</span>
+                                    <span style="font-weight:900; font-size:36px;">${{ '%.2f' % game_data.get('total_due', 0) }}</span>
+                                </div>
+                                <div class="totals" style="width:100%; display:flex; flex-direction:column; gap:10px;">
+                                    <div class="pill">
+                                        <span class="label">You selected</span>
+                                        <span id="selected-total">$0</span>
+                                    </div>
+                                    <div class="pill">
+                                        <span class="label">Difference</span>
+                                        <span id="delta" class="delta bad">$0</span>
+                                    </div>
                                 </div>
                             </div>
-                            </div>
                         </div>
-                        <div class="actions" style="margin-top:12px; display:grid; gap:10px; grid-template-columns: repeat(2, minmax(180px, 1fr)); width:100%;">
+                        <div class="actions" style="margin-top:12px; display:grid; gap:10px; grid-template-columns: repeat(2, minmax(160px, 1fr)); width:100%;">
                             <button form="money-form" type="submit" class="btn btn-primary" aria-label="Submit payment" style="font-size:18px;">Submit payment</button>
                             <button type="button" id="clear-btn" class="btn btn-ghost" aria-label="Clear bills" style="font-size:16px;">Clear bills</button>
                             <form method="POST" style="display:inline;" aria-label="Skip item">
@@ -408,7 +439,7 @@
                         {% endif %}
                     </div>
 
-                    <div>
+                    <div class="stacks-col">
                         <form method="POST" id="money-form">
                             <input type="hidden" name="answer" id="answer-field" value="20:0,10:0,5:0,1:0">
                             <input type="hidden" id="debug_payload" name="debug_payload" value="">
@@ -416,7 +447,7 @@
                             <input type="hidden" id="count-10" name="count_10" value="0">
                             <input type="hidden" id="count-5" name="count_5" value="0">
                             <input type="hidden" id="count-1" name="count_1" value="0">
-                            <div class="bills" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+                            <div class="bills stacks-grid">
                                 {% for denom, img in {20:'/static/bills/20.jpg',10:'/static/bills/10.jpg',5:'/static/bills/5.jpg',1:'/static/bills/1.jpg'}.items() %}
                                 <div class="bill-card" data-denom="{{ denom }}">
                                     <div class="stack-row">
@@ -431,7 +462,7 @@
                                     </div>
                                     <div class="bill-value">${{ denom }} bills</div>
                 <div class="stack-count-chip">
-                    In use: <span data-count="{{ denom }}">0</span>
+                    ${{ denom }} in use: <span data-count="{{ denom }}">0</span>
                 </div>
             </div>
             {% endfor %}
