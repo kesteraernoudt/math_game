@@ -182,7 +182,7 @@
         }
         .history {
             display: flex;
-            flex-direction: column;
+            flex-direction: column-reverse;
             gap: 10px;
             margin: 20px 0;
             padding: 15px;
@@ -218,6 +218,27 @@
         .history-result.incorrect {
             color: #f87171;
         }
+        .answer-row {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+        .answer-left {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        @media (orientation: landscape) {
+            body { max-width: 1200px; padding: 18px; }
+            .game-box { padding: 32px; }
+            .answer-row { flex-direction: row; align-items: flex-start; justify-content: center; gap: 28px; }
+            .answer-left { align-items: center; }
+            .keypad { max-width: 320px; }
+        }
     </style>
 </head>
 <body>
@@ -246,23 +267,27 @@
             {% endif %}
 
             <!-- Answer form -->
-            <form method="POST" style="margin-top: 30px;">
-                <input type="number" name="answer" class="answer-input" id="answer-input" inputmode="numeric" pattern="[0-9]*" placeholder="?" min="0" required readonly>
-                <div class="keypad" aria-label="Number pad">
-                    <button type="button" class="key-btn" data-key="7">7</button>
-                    <button type="button" class="key-btn" data-key="8">8</button>
-                    <button type="button" class="key-btn" data-key="9">9</button>
-                    <button type="button" class="key-btn" data-key="4">4</button>
-                    <button type="button" class="key-btn" data-key="5">5</button>
-                    <button type="button" class="key-btn" data-key="6">6</button>
-                    <button type="button" class="key-btn" data-key="1">1</button>
-                    <button type="button" class="key-btn" data-key="2">2</button>
-                    <button type="button" class="key-btn" data-key="3">3</button>
-                    <button type="button" class="key-btn subtle" data-key="clear">Clear</button>
-                    <button type="button" class="key-btn" data-key="0">0</button>
-                    <button type="button" class="key-btn alt" data-key="backspace">⌫</button>
+            <form method="POST" style="margin-top: 30px; width:100%;">
+                <div class="answer-row">
+                    <div class="answer-left">
+                        <input type="number" name="answer" class="answer-input" id="answer-input" inputmode="numeric" pattern="[0-9]*" placeholder="?" min="0" required readonly>
+                        <button type="submit" class="submit-btn">Submit Answer</button>
+                    </div>
+                    <div class="keypad" aria-label="Number pad">
+                        <button type="button" class="key-btn" data-key="7">7</button>
+                        <button type="button" class="key-btn" data-key="8">8</button>
+                        <button type="button" class="key-btn" data-key="9">9</button>
+                        <button type="button" class="key-btn" data-key="4">4</button>
+                        <button type="button" class="key-btn" data-key="5">5</button>
+                        <button type="button" class="key-btn" data-key="6">6</button>
+                        <button type="button" class="key-btn" data-key="1">1</button>
+                        <button type="button" class="key-btn" data-key="2">2</button>
+                        <button type="button" class="key-btn" data-key="3">3</button>
+                        <button type="button" class="key-btn subtle" data-key="clear">Clear</button>
+                        <button type="button" class="key-btn" data-key="0">0</button>
+                        <button type="button" class="key-btn alt" data-key="backspace">⌫</button>
+                    </div>
                 </div>
-                <button type="submit" class="submit-btn">Submit Answer</button>
             </form>
 
             <!-- Feedback messages -->
@@ -285,7 +310,7 @@
             {% if session.history and not game_over %}
                 <div class="history">
                     <h3>Recent Answers</h3>
-                    {% for entry in session.history[-5:] %}
+                    {% for entry in session.history[-5:]|reverse %}
                         <div class="history-item">
                             <span class="history-problem">{{ entry.number1 }} + {{ entry.number2 }} = {{ entry.user_answer }}</span>
                             <span class="history-result {% if entry.is_correct %}correct{% else %}incorrect{% endif %}">
@@ -326,7 +351,7 @@
             {% if session.history %}
                 <div class="history">
                     <h3 style="font-size: 1.5em; margin-bottom: 20px;">All Answers</h3>
-                    {% for entry in session.history %}
+                    {% for entry in session.history|reverse %}
                         <div class="history-item">
                             <span class="history-problem">{{ entry.number1 }} + {{ entry.number2 }} = {{ entry.user_answer }}</span>
                             <span class="history-result {% if entry.is_correct %}correct{% else %}incorrect{% endif %}">

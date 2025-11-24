@@ -22,7 +22,7 @@
         }
         .history {
             display: flex;
-            flex-direction: column;
+            flex-direction: column-reverse;
             gap: 10px;
             margin: 20px 0;
             padding: 15px;
@@ -166,6 +166,47 @@
         .start-btn:hover {
             background-color: #2980b9;
         }
+        .active-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            align-items: center;
+            justify-content: center;
+        }
+        .axis-row {
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+            gap: 24px;
+            width: 100%;
+        }
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: stretch;
+            min-width: 260px;
+            flex: 1 1 100%;
+        }
+        .latest-msg {
+            padding: 12px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.08);
+            font-weight: 700;
+        }
+        .message-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        @media (orientation: landscape) {
+            body { max-width: 1200px; padding: 18px; }
+            .game-box { padding: 32px; }
+            .active-wrap { flex-direction: row; align-items: flex-start; gap: 26px; }
+            .axis-row { justify-content: flex-start; gap: 30px; }
+            .side-panel { max-width: 520px; }
+            .nav-link { margin-bottom: 10px; }
+        }
         /* CSS for the highly visible selected button */
         .factor-btn.selected {
             /* Add a transition for a smooth visual effect */
@@ -189,7 +230,7 @@
         }
         .nav-link {
             display: inline-block;
-            margin-bottom: 20px;
+            margin-bottom: 12px;
             padding: 10px 20px;
             background-color: #95a5a6;
             color: white;
@@ -226,18 +267,12 @@
     <div class="game-box">
         {% if game_active %}
             {% set show_axis = game_config.get('show_axis', default_config.get('show_axis', True)) %}
-            {% if messages|length > 0 %}
-                <div class="round-info">{{ messages[0] }}</div>
-            {% endif %}
-            <div style="{% if not show_debug %}display:none;{% endif %}background:#fff3cd; color:#856404; padding:8px; border-radius:6px; margin:12px 0;">
-                DEBUG: current_number='{{ session.get('current_number') }}' | game_active='{{ game_active }}' | game_over='{{ game_over }}'
-            </div>
-
-            {% if show_axis %}
-                {% set max_num = game_config.get('max_number', default_config.get('max_number', 100)) %}
-                {% set factor = game_config.get('factor', default_config.get('factor', 10)) %}
-                {% set current_num = session.get('current_number') %}
-                <div style="display:flex; justify-content:center; gap:38px; align-items:center; margin: 22px 0;">
+            <div class="active-wrap">
+                <div class="axis-row">
+                {% if show_axis %}
+                    {% set max_num = game_config.get('max_number', default_config.get('max_number', 100)) %}
+                    {% set factor = game_config.get('factor', default_config.get('factor', 10)) %}
+                    {% set current_num = session.get('current_number') %}
                     <div style="position:relative; width:150px; height:500px;">
                         <div style="position:absolute; left:32px; top:0; bottom:0; width:110px; border-left:3px solid #94a3b8; background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0)); border-radius:8px;">
                             {% set last_tick = (max_num // factor) * factor %}
@@ -271,24 +306,31 @@
                         <div class="number-display" style="font-size: 150px; min-width: 180px; margin:0 0 0 10px; line-height:1; color:#f8fafc;">{{ session.get('current_number') }}</div>
                         <button id="interactive-down" data-answer="down" class="btn btn-down" style="height: 110px; width: 110px; font-size: 56px;">&#9660;</button>
                     </div>
-                </div>
-            {% else %}
-                <div id="interactive-row" style="display: flex; align-items: center; justify-content: center; gap: 60px; margin: 20px 0 10px 0;">
-                    <button id="interactive-up" data-answer="up" class="btn btn-up" style="height: 120px; width: 120px; font-size: 60px;">
-                        &#9650;
-                    </button>
-                    <div class="number-display" style="font-size: 140px; min-width: 240px; margin: 0 20px;">{{ session.get('current_number') }}</div>
-                    <button id="interactive-down" data-answer="down" class="btn btn-down" style="height: 120px; width: 120px; font-size: 60px;">
-                        &#9660;
-                    </button>
-                </div>
-            {% endif %}
-
-            {% for message in messages %}
-                {% if loop.index0 > 1 %}
-                    <div class="message">{{ message }}</div>
+                {% else %}
+                    <div id="interactive-row" style="display: flex; align-items: center; justify-content: center; gap: 60px; margin: 20px 0 10px 0;">
+                        <button id="interactive-up" data-answer="up" class="btn btn-up" style="height: 120px; width: 120px; font-size: 60px;">
+                            &#9650;
+                        </button>
+                        <div class="number-display" style="font-size: 140px; min-width: 240px; margin: 0 20px;">{{ session.get('current_number') }}</div>
+                        <button id="interactive-down" data-answer="down" class="btn btn-down" style="height: 120px; width: 120px; font-size: 60px;">
+                            &#9660;
+                        </button>
+                    </div>
                 {% endif %}
-            {% endfor %}
+                </div>
+                <div class="side-panel">
+                    {% if messages|length > 0 %}
+                        <div class="latest-msg">{{ messages[-1] }}</div>
+                    {% endif %}
+                    {% if messages|length > 1 %}
+                    <div class="message-list">
+                        {% for message in messages[:-1] %}
+                            <div class="message">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
 
         {% else %}
             {% set prev_config = game_config %}
@@ -358,7 +400,7 @@
                 <div class="number-display" style="font-size: 60px; min-width: 220px; margin: 0 20px;">Score: {{ session.games[game_id].get('score', 0) }} / {{ session.games[game_id].get('current_round', 0) }}</div>
             </div>
         {% endif %}
-        {% for entry in session.history %}
+        {% for entry in session.history|reverse %}
             <div class="history-item">
                 <span class="history-number">{{ entry.number }}</span>
                 <span class="history-answer">
