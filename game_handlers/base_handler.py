@@ -1,4 +1,5 @@
-"""Base handler for game-specific web logic."""
+"""© Cigav Productions LLC
+Base handler for game-specific web logic."""
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 from flask import session
@@ -42,5 +43,4 @@ class BaseGameHandler(ABC):
     def should_display_round(self) -> bool:
         """Return True if this game should display round info via UI."""
         return False
-
 

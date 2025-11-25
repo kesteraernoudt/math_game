@@ -1,4 +1,5 @@
-"""Money game where players build payments with $20, $5, and $1 bills."""
+"""© Cigav Productions LLC
+Money game where players build payments with $20, $5, and $1 bills."""
 import random
 import math
 from dataclasses import dataclass

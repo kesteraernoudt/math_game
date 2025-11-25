@@ -1,3 +1,4 @@
+"""© Cigav Productions LLC"""
 from flask import Flask, render_template, request, session, redirect, url_for
 from math_games import GameRegistry
 from math_games.web_ui import WebUI

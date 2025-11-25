@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- © Cigav Productions LLC -->
 <html>
 <head>
     <title>{{ game_info.name if game_info else 'Money Match' }}</title>
@@ -345,7 +346,6 @@
 </head>
 <body>
     <div class="shell">
-        <a class="nav-link" href="{{ url_for('index') }}">&#x2190; Back to Games</a>
         <div class="panel">
             {% if game_active %}
                 {% set game_data = session.games[game_id] %}
@@ -836,5 +836,11 @@
             updateTotals();
         })();
     </script>
+    <div style="margin-top:18px; text-align:center;">
+        <a class="nav-link" href="{{ url_for('index') }}">&#x2190; Back to Games</a>
+    </div>
+    <div style="margin-top:12px; text-align:center; color: rgba(255,255,255,0.5); font-size: 12px;">
+        © Cigav Productions LLC
+    </div>
 </body>
 </html>

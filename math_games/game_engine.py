@@ -1,3 +1,4 @@
+"""© Cigav Productions LLC"""
 import random
 from dataclasses import dataclass
 from typing import Tuple, Optional, Dict, Any

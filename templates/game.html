@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- © Cigav Productions LLC -->
 <html>
 <head>
     <title>{{ game_info.name if game_info else 'Math Game' }}</title>
@@ -244,10 +245,7 @@
     </style>
 </head>
 <body>
-    <!-- Navigation -->
-    <div style="text-align: left; margin-bottom: 20px;">
-        <a href="{{ url_for('index') }}" class="nav-link">← Back to Games</a>
-    </div>
+    <!-- Main content -->
     <!-- TEMPLATE MARKER and SIMPLE TEST BLOCK (hidden by default unless show_debug=true) -->
     <div id="template-marker" style="{% if not show_debug %}display:none;{% endif %}background:#d4edda;color:#155724;padding:6px;border-radius:6px;margin-bottom:10px;">TEMPLATE MARKER: game.html v4</div>
 
@@ -482,5 +480,11 @@
             if (maxPlus) maxPlus.addEventListener('click', ()=>{ if(maxInput) maxInput.value = Number(maxInput.value)+1; });
         });
     </script>
+    <div style="margin-top:18px; text-align:center;">
+        <a href="{{ url_for('index') }}" class="nav-link">← Back to Games</a>
+    </div>
+    <div style="margin-top:12px; text-align:center; color: rgba(255,255,255,0.5); font-size: 12px;">
+        © Cigav Productions LLC
+    </div>
 </body>
 </html>

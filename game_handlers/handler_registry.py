@@ -1,4 +1,5 @@
-"""Registry for game handlers."""
+"""© Cigav Productions LLC
+Registry for game handlers."""
 from typing import Dict, Type, Optional
 from .base_handler import BaseGameHandler
 

@@ -1,3 +1,4 @@
+"""© Cigav Productions LLC"""
 from abc import ABC, abstractmethod
 from abc import ABC, abstractmethod
 from .game_engine import GameState

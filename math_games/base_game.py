@@ -1,3 +1,4 @@
+"""© Cigav Productions LLC"""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Tuple, Optional, Dict, Any
@@ -70,4 +71,3 @@ class BaseGameEngine(ABC):
         self.score = data.get('score', 0)
         self.current_round = data.get('current_round', 0)
         self._config = data.get('config', {})
-

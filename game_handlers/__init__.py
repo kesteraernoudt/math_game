@@ -1,4 +1,5 @@
-"""Game handlers for managing game-specific web logic."""
+"""© Cigav Productions LLC
+Game handlers for managing game-specific web logic."""
 from .base_handler import BaseGameHandler
 from .rounding_handler import RoundingGameHandler
 from .addition_handler import AdditionGameHandler

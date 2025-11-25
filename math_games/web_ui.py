@@ -1,3 +1,4 @@
+"""© Cigav Productions LLC"""
 from flask import session
 from .ui import GameUI
 from .game_engine import GameState

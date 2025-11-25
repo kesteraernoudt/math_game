@@ -1,4 +1,5 @@
-"""Example addition game to demonstrate how to add new games."""
+"""© Cigav Productions LLC
+Example addition game to demonstrate how to add new games."""
 import random
 from dataclasses import dataclass
 from typing import Tuple, Optional, Dict, Any

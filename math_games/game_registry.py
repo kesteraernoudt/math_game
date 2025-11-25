@@ -1,4 +1,5 @@
-"""Game registry for managing and discovering available games."""
+"""© Cigav Productions LLC
+Game registry for managing and discovering available games."""
 from typing import Dict, Type, Optional
 from .base_game import BaseGameEngine
 
@@ -55,4 +56,3 @@ class GameRegistry:
             game_id: cls.get_game_info(game_id)
             for game_id in cls._games.keys()
         }
-

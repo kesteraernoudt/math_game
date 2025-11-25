@@ -1,4 +1,5 @@
-"""Handler for rounding game-specific web logic."""
+"""© Cigav Productions LLC
+Handler for rounding game-specific web logic."""
 from typing import Dict, Any
 from flask import session
 from .base_handler import BaseGameHandler
@@ -56,5 +57,4 @@ class RoundingGameHandler(BaseGameHandler):
     def should_display_round(self) -> bool:
         """Return True if this game should display round info via UI."""
         return True
-
 

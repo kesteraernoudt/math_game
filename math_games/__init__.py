@@ -1,4 +1,5 @@
-"""Math games package."""
+"""© Cigav Productions LLC
+Math games package."""
 from .game_registry import GameRegistry
 from .game_engine import RoundingGameEngine
 from .addition_game import AdditionGameEngine

@@ -1,4 +1,5 @@
-"""Handler for the money game web-specific logic."""
+"""© Cigav Productions LLC
+Handler for the money game web-specific logic."""
 from typing import Dict, Any
 from flask import session
 from .base_handler import BaseGameHandler
