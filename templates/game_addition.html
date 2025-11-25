@@ -232,38 +232,54 @@
             flex-direction: column;
             align-items: center;
             gap: 10px;
+            width: 100%;
+            max-width: 420px;
         }
         @media (orientation: landscape) {
             body { max-width: 1200px; padding: 18px; }
             .game-box { padding: 32px; }
-            .answer-row { flex-direction: row; align-items: flex-start; justify-content: center; gap: 28px; }
-            .answer-left { align-items: center; }
+            .answer-row { flex-direction: row; align-items: flex-start; justify-content: center; gap: 14px; }
+            .answer-left { align-items: center; max-width: 460px; }
+            .answer-input { width: 100%; max-width: 460px; }
+            .submit-btn { width: 100%; }
             .keypad { max-width: 320px; }
         }
     </style>
 </head>
 <body>
-    <div class="game-box">
-        {% if game_active %}
-            <!-- Round info -->
-            {% if messages|length > 0 %}
-                <div class="round-info">{{ messages[0] }}</div>
-            {% endif %}
+    <div class="game-box" id="game-container" data-active="{{ 'true' if game_active else 'false' }}" data-over="{{ 'true' if game_over else 'false' }}">
+        <!-- Config -->
+        <div id="config-container" style="{% if game_active %}display:none;{% endif %}">
+            <h2>{{ game_info.name if game_info else 'Addition Game' }}</h2>
+            <p>{{ game_info.description if game_info else 'Solve addition problems!' }}</p>
 
-            <!-- Problem display -->
-            {% if session.games and session.games.get(game_id) %}
-                {% set game_data = session.games[game_id] %}
-                <div class="problem-display">
-                    <span class="number">{{ game_data.get('number1', '?') }}</span>
-                    <span class="plus-sign">+</span>
-                    <span class="number">{{ game_data.get('number2', '?') }}</span>
-                    <span class="equals-sign">=</span>
-                    <span class="number">?</span>
+            <form method="POST" class="config-form" id="config-form">
+                <div class="config-item">
+                    <label for="rounds">Number of Rounds:</label>
+                    <input type="number" id="rounds" name="rounds" min="1" value="{{ game_config.get('rounds', default_config.get('rounds', 10)) }}" required>
                 </div>
-            {% endif %}
+                <div class="config-item">
+                    <label for="max_number">Max Number:</label>
+                    <input type="number" id="max_number" name="max_number" min="1" value="{{ game_config.get('max_number', default_config.get('max_number', 50)) }}" required>
+                </div>
+                <button type="button" id="start-game-btn" class="start-btn" style="font-size:20px; padding:14px 28px;">Start Game</button>
+            </form>
+        </div>
 
-            <!-- Answer form -->
-            <form method="POST" style="margin-top: 30px; width:100%;">
+        <!-- Play -->
+        {% set game_data = session.games[game_id] if session.games and session.games.get(game_id) else {} %}
+        <div id="play-section" style="{% if not game_active %}display:none;{% endif %}">
+            <div class="round-info" id="round-info">
+                {% if messages|length > 0 %}{{ messages[0] }}{% endif %}
+            </div>
+            <div class="problem-display">
+                <span class="number" id="number1">{{ game_data.get('number1', '?') }}</span>
+                <span class="plus-sign">+</span>
+                <span class="number" id="number2">{{ game_data.get('number2', '?') }}</span>
+                <span class="equals-sign">=</span>
+                <span class="number">?</span>
+            </div>
+            <form method="POST" style="margin-top: 30px; width:100%;" id="addition-active-form">
                 <div class="answer-row">
                     <div class="answer-left">
                         <input type="number" name="answer" class="answer-input" id="answer-input" inputmode="numeric" pattern="[0-9]*" placeholder="?" min="0" required readonly>
@@ -285,28 +301,25 @@
                     </div>
                 </div>
             </form>
-
-            <!-- Feedback messages -->
-            {% for message in messages %}
-                {% if loop.index0 > 0 %}
-                    <div class="message {% if 'Correct' in message %}correct{% elif 'Incorrect' in message %}incorrect{% endif %}">
-                        {{ message }}
-                    </div>
-                {% endif %}
-            {% endfor %}
-
-            <!-- Score display -->
-            {% if session.games and session.games.get(game_id) and session.games[game_id].get('current_round', 0) > 0 %}
-                <div class="score">
+            <div id="messages-box">
+                {% for message in messages %}
+                    {% if loop.index0 > 0 %}
+                        <div class="message {% if 'Correct' in message %}correct{% elif 'Incorrect' in message %}incorrect{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            <div class="score" id="score-box">
+                {% if session.games and session.games.get(game_id) and session.games[game_id].get('current_round', 0) > 0 %}
                     Score: {{ session.games[game_id].get('score', 0) }} / {{ session.games[game_id].get('current_round', 0) }}
-                </div>
-            {% endif %}
-
-            <!-- History (Recent answers during active game) -->
-            {% if session.history and not game_over %}
-                <div class="history">
-                    <h3>Recent Answers</h3>
-                    {% for entry in session.history[-5:]|reverse %}
+                {% endif %}
+            </div>
+            <div class="history">
+                <h3>Recent Answers</h3>
+                <div id="history-recent">
+                    {% if session.history and game_active %}
+                        {% for entry in session.history[-5:]|reverse %}
                         <div class="history-item">
                             <span class="history-problem">{{ entry.number1 }} + {{ entry.number2 }} = {{ entry.user_answer }}</span>
                             <span class="history-result {% if entry.is_correct %}correct{% else %}incorrect{% endif %}">
@@ -317,37 +330,30 @@
                                 {% endif %}
                             </span>
                         </div>
-                    {% endfor %}
+                        {% endfor %}
+                    {% endif %}
                 </div>
-            {% endif %}
+            </div>
+        </div>
 
-            <!-- Restart button -->
-            <form method="POST" style="margin-top: 30px;">
-                <button type="submit" name="action" value="restart" class="start-btn">Restart Game</button>
-            </form>
-
-        {% elif game_over %}
-            <!-- Game Over Screen -->
-            <!-- Display Game Over messages -->
+        <!-- Over -->
+        <div id="over-section" style="{% if not game_over %}display:none;{% endif %}">
             {% for message in messages %}
                 <div class="message {% if 'Game Over' in message %}correct{% elif 'Correct' in message %}correct{% elif 'Incorrect' in message %}incorrect{% endif %}" style="font-size: 1.5em; font-weight: bold; margin: 20px 0;">
                     {{ message }}
                 </div>
             {% endfor %}
-
-            <!-- Final Score -->
             {% if session.games and session.games.get(game_id) %}
                 {% set game_data = session.games[game_id] %}
                 <div class="score" style="font-size: 32px; margin: 30px 0;">
                     Final Score: {{ game_data.get('score', 0) }} / {{ game_data.get('current_round', 0) }}
                 </div>
             {% endif %}
-
-            <!-- Full History (All answers at end of game) -->
-            {% if session.history %}
-                <div class="history">
-                    <h3 style="font-size: 1.5em; margin-bottom: 20px;">All Answers</h3>
-                    {% for entry in session.history|reverse %}
+            <div class="history">
+                <h3 style="font-size: 1.5em; margin-bottom: 20px;">All Answers</h3>
+                <div id="history-all">
+                    {% if session.history %}
+                        {% for entry in session.history|reverse %}
                         <div class="history-item">
                             <span class="history-problem">{{ entry.number1 }} + {{ entry.number2 }} = {{ entry.user_answer }}</span>
                             <span class="history-result {% if entry.is_correct %}correct{% else %}incorrect{% endif %}">
@@ -358,36 +364,18 @@
                                 {% endif %}
                             </span>
                         </div>
-                    {% endfor %}
+                        {% endfor %}
+                    {% endif %}
                 </div>
-            {% endif %}
-
-            <!-- Restart/New Game button -->
-            <form method="POST" style="margin-top: 30px;">
-                <button type="submit" name="action" value="restart" class="start-btn" style="font-size:20px; padding:14px 28px;">Start New Game</button>
-            </form>
-
-        {% else %}
-            <!-- Configuration form -->
-            <h2>{{ game_info.name if game_info else 'Addition Game' }}</h2>
-            <p>{{ game_info.description if game_info else 'Solve addition problems!' }}</p>
-
-            <form method="POST" class="config-form">
-                <div class="config-item">
-                    <label for="rounds">Number of Rounds:</label>
-                    <input type="number" id="rounds" name="rounds" min="1" value="{{ game_config.get('rounds', default_config.get('rounds', 10)) }}" required>
-                </div>
-                <div class="config-item">
-                    <label for="max_number">Max Number:</label>
-                    <input type="number" id="max_number" name="max_number" min="1" value="{{ game_config.get('max_number', default_config.get('max_number', 50)) }}" required>
-                </div>
-                <button type="submit" name="action" value="start_game" class="start-btn" style="font-size:20px; padding:14px 28px;">Start Game</button>
-            </form>
-        {% endif %}
+            </div>
+            <div style="margin-top: 30px;">
+                <button type="button" id="restart-ajax" class="start-btn" style="font-size:20px; padding:14px 28px;">Start New Game</button>
+            </div>
+        </div>
+    </div>
     </div>
 
     <script>
-        // Auto-focus on answer input when page loads
         document.addEventListener('DOMContentLoaded', function() {
             const answerInput = document.getElementById('answer-input');
             if (answerInput) {
@@ -408,21 +396,268 @@
                         answerInput.focus();
                     });
                 });
-                // Submit on Enter key if user brings up native keyboard
-                answerInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        this.form.submit();
+            }
+
+            function renderHistory(list, target) {
+                if (!target) return;
+                target.innerHTML = '';
+                (list || []).forEach(entry => {
+                    const div = document.createElement('div');
+                    div.className = 'history-item';
+                    div.innerHTML = `
+                        <span class="history-problem">${entry.number1} + ${entry.number2} = ${entry.user_answer}</span>
+                        <span class="history-result ${entry.is_correct ? 'correct' : 'incorrect'}">
+                            ${entry.is_correct ? '✓ Correct' : '✗ Incorrect'} (Correct: ${entry.correct_answer})
+                        </span>`;
+                    target.appendChild(div);
+                });
+            }
+
+            async function submitAjax(action, payload = {}) {
+                const body = Object.assign({ action }, payload);
+                const res = await fetch(location.pathname, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(body)
+                });
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(`Network error ${res.status}: ${text}`);
+                }
+                return res.json();
+            }
+
+            const form = document.getElementById('addition-active-form');
+            const messagesBox = document.getElementById('messages-box');
+            const roundInfo = document.getElementById('round-info');
+            const number1 = document.getElementById('number1');
+            const number2 = document.getElementById('number2');
+            const scoreBox = document.getElementById('score-box');
+            const historyRecent = document.getElementById('history-recent');
+            const historyAll = document.getElementById('history-all');
+            const restartBtn = document.getElementById('restart-ajax');
+            const configForm = document.getElementById('config-form');
+            const startBtn = document.getElementById('start-game-btn');
+            const configContainer = document.getElementById('config-container');
+            const gameContainer = document.querySelector('.game-box');
+            const overSection = document.getElementById('over-section');
+            const playSection = document.getElementById('play-section');
+            const footerRestart = document.getElementById('footer-restart');
+            if (startBtn) console.log('Start button ready');
+            if (!startBtn) console.warn('Start button missing in DOM');
+
+            function syncFooterRestart() {
+                if (!footerRestart) return;
+                const active = gameContainer?.dataset.active === 'true';
+                const over = gameContainer?.dataset.over === 'true';
+                footerRestart.style.display = (active || over) ? 'inline-block' : 'none';
+            }
+
+            async function handleAnswerSubmit(e) {
+                if (e) e.preventDefault();
+                try {
+                    const data = await submitAjax('answer', { answer: answerInput ? (answerInput.value || '') : '' });
+                    if (number1) number1.textContent = data.number1 ?? '?';
+                    if (number2) number2.textContent = data.number2 ?? '?';
+                    if (roundInfo) roundInfo.textContent = `Round ${data.current_round}/${data.total_rounds}`;
+                    if (scoreBox) scoreBox.textContent = `Score: ${data.score} / ${data.current_round}`;
+                    if (messagesBox) {
+                        messagesBox.innerHTML = '';
+                        (data.messages || []).forEach((m) => {
+                            const div = document.createElement('div');
+                            div.className = 'message';
+                            div.textContent = m;
+                            messagesBox.appendChild(div);
+                        });
+                    }
+                    renderHistory(data.history || [], historyRecent);
+                    renderHistory(data.history || [], historyAll);
+                    if (answerInput) {
+                        answerInput.value = '';
+                        if (!data.game_over) {
+                            answerInput.focus();
+                        }
+                    }
+                    if (data.game_over && form) {
+                        form.style.display = 'none';
+                        if (playSection) playSection.style.display = 'none';
+                        if (overSection) overSection.style.display = 'block';
+                        if (restartBtn) restartBtn.style.display = 'block';
+                        if (gameContainer) {
+                            gameContainer.dataset.active = 'false';
+                            gameContainer.dataset.over = 'true';
+                        }
+                        syncFooterRestart();
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Could not submit. Please try again.');
+                }
+            }
+
+            if (form) form.addEventListener('submit', handleAnswerSubmit);
+
+            function handleStartGame(e) {
+                if (e) e.preventDefault();
+                if (!startBtn) return;
+                startBtn.disabled = true;
+                const rounds = document.getElementById('rounds')?.value;
+                const maxNum = document.getElementById('max_number')?.value;
+                console.log('start_game click', { rounds, maxNum });
+                submitAjax('start_game', { rounds, max_number: maxNum })
+                .then((data) => {
+                    console.log('start_game response', data);
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    if (!data.started) {
+                        throw new Error('Start did not return started=true');
+                    }
+                    if (number1) number1.textContent = data.number1 ?? '?';
+                    if (number2) number2.textContent = data.number2 ?? '?';
+                    if (roundInfo) roundInfo.textContent = `Round ${data.current_round}/${data.total_rounds}`;
+                    if (scoreBox) scoreBox.textContent = `Score: ${data.score} / ${data.current_round}`;
+                    if (messagesBox) {
+                        messagesBox.innerHTML = '';
+                        (data.messages || []).forEach((m) => {
+                            const div = document.createElement('div');
+                            div.className = 'message';
+                            div.textContent = m;
+                            messagesBox.appendChild(div);
+                        });
+                    }
+                    renderHistory(data.history || [], historyRecent);
+                    renderHistory(data.history || [], historyAll);
+                    if (configContainer) configContainer.style.display = 'none';
+                    if (gameContainer) {
+                        gameContainer.style.display = 'block';
+                        gameContainer.dataset.active = 'true';
+                        gameContainer.dataset.over = 'false';
+                    }
+                    if (overSection) overSection.style.display = 'none';
+                    if (playSection) playSection.style.display = 'block';
+                    if (form) form.style.display = 'block';
+                    if (restartBtn) restartBtn.style.display = 'none';
+                    syncFooterRestart();
+                    if (answerInput) answerInput.focus();
+                })
+                .catch((err) => {
+                    console.error(err);
+                    alert('Could not start game. Please try again.\n' + err.message);
+                })
+                .finally(() => {
+                    startBtn.disabled = false;
+                });
+            }
+
+            if (startBtn) startBtn.addEventListener('click', handleStartGame);
+            if (configForm) configForm.addEventListener('submit', handleStartGame);
+
+            async function doRestart() {
+                try {
+                    const data = await submitAjax('restart', {});
+                    if (data.error) throw new Error(data.error);
+                    if (number1) number1.textContent = data.number1 ?? '?';
+                    if (number2) number2.textContent = data.number2 ?? '?';
+                    if (roundInfo) roundInfo.textContent = `Round ${data.current_round}/${data.total_rounds}`;
+                    if (scoreBox) scoreBox.textContent = `Score: ${data.score} / ${data.current_round}`;
+                    if (messagesBox) {
+                        messagesBox.innerHTML = '';
+                        (data.messages || []).forEach((m) => {
+                            const div = document.createElement('div');
+                            div.className = 'message';
+                            div.textContent = m;
+                            messagesBox.appendChild(div);
+                        });
+                    }
+                    renderHistory(data.history || [], historyRecent);
+                    renderHistory(data.history || [], historyAll);
+                    if (configContainer) configContainer.style.display = 'none';
+                    if (playSection) playSection.style.display = 'block';
+                    if (overSection) overSection.style.display = 'none';
+                    if (form) form.style.display = 'block';
+                    if (restartBtn) restartBtn.style.display = 'none';
+                    if (answerInput) {
+                        answerInput.value = '';
+                        answerInput.focus();
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Could not restart. Please try again.');
+                }
+            }
+
+            if (restartBtn) {
+                const active = gameContainer?.dataset.active === 'true';
+                const over = gameContainer?.dataset.over === 'true';
+                restartBtn.style.display = (active || over) ? 'block' : 'none';
+                restartBtn.addEventListener('click', doRestart);
+            }
+            syncFooterRestart();
+            // Fullscreen button handler (works on most browsers)
+            const fsBtn = document.getElementById('fullscreen-btn');
+            const fsText = () => {
+                if (fsBtn) {
+                    const isFs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+                    fsBtn.textContent = isFs ? 'Exit full screen' : 'Full screen';
+                }
+            };
+            if (fsBtn) {
+                fsBtn.addEventListener('click', () => {
+                    const el = document.documentElement;
+                    const isFs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+                    try {
+                        if (isFs) {
+                            const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+                            if (exit) exit.call(document);
+                        } else {
+                            const request = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+                            if (request) {
+                                request.call(el);
+                            } else {
+                                alert('For full screen on iPhone/iPad, use “Add to Home Screen” from Safari.');
+                            }
+                        }
+                    } catch (err) {
+                        console.error(err);
                     }
                 });
+                document.addEventListener('fullscreenchange', fsText);
+                document.addEventListener('webkitfullscreenchange', fsText);
+                fsText();
             }
         });
     </script>
-    <div style="margin-top:18px; text-align:center;">
+    <div style="margin-top:18px; display:flex; align-items:center; flex-wrap:wrap; gap:12px;">
         <a href="{{ url_for('index') }}" class="nav-link">← Back to Games</a>
+        <div style="flex:1; display:flex; justify-content:center;">
+            <button id="fullscreen-btn" style="padding:10px 16px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.08); color:#f8fafc; cursor:pointer;">Full screen</button>
+        </div>
+        <div>
+            <button id="footer-restart" class="start-btn" style="padding:10px 20px; font-size:18px;" onclick="window.location.href='{{ url_for('game', game_id=game_id, fresh=1) }}'">Restart</button>
+        </div>
     </div>
     <div style="margin-top:12px; text-align:center; color: rgba(255,255,255,0.5); font-size: 12px;">
         © Cigav Productions LLC
     </div>
+    <script>
+        (function() {
+            const fsBtn = document.getElementById('fullscreen-btn');
+            if (!fsBtn) return;
+            fsBtn.addEventListener('click', () => {
+                const el = document.documentElement;
+                const request = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+                if (request) {
+                    request.call(el);
+                } else {
+                    alert('For full screen on iPhone/iPad, use “Add to Home Screen” from Safari.');
+                }
+            });
+        })();
+    </script>
 </body>
 </html>

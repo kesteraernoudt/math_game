@@ -480,8 +480,10 @@
             if (maxPlus) maxPlus.addEventListener('click', ()=>{ if(maxInput) maxInput.value = Number(maxInput.value)+1; });
         });
     </script>
-    <div style="margin-top:18px; text-align:center;">
+    <div style="margin-top:18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
         <a href="{{ url_for('index') }}" class="nav-link">← Back to Games</a>
+        <span></span>
+        <span></span>
     </div>
     <div style="margin-top:12px; text-align:center; color: rgba(255,255,255,0.5); font-size: 12px;">
         © Cigav Productions LLC

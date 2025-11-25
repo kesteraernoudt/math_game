@@ -1,5 +1,6 @@
 """© Cigav Productions LLC"""
-from flask import Flask, render_template, request, session, redirect, url_for
+"""© Cigav Productions LLC"""
+from flask import Flask, render_template, request, session, redirect, url_for, jsonify
 from math_games import GameRegistry
 from math_games.web_ui import WebUI
 from game_handlers import HandlerRegistry
@@ -104,6 +105,7 @@ def game(game_id):
     game_class = GameRegistry.get_game(game_id)
     if game_class is None:
         return redirect(url_for('index'))
+    default_config = game_class.get_default_config() if hasattr(game_class, 'get_default_config') else {}
     
     game_state = get_or_create_game_state(game_id)
     if game_state is None:
@@ -209,6 +211,143 @@ def game(game_id):
                 
                 return redirect(url_for('game', game_id=game_id))
         
+        # AJAX JSON handling for addition game (no page reload)
+        if request.is_json and game_id == 'addition':
+            data = request.get_json(silent=True) or {}
+            action = data.get('action')
+            def build_response(messages_list, extra=None):
+                gs = session['games'][game_id]
+                hist = session.get('history', [])
+                resp = {
+                    "game_active": gs.get('active', False),
+                    "game_over": gs.get('over', False),
+                    "score": gs.get('score', 0),
+                    "current_round": gs.get('current_round', 0),
+                    "total_rounds": gs.get('config', {}).get('rounds', gs.get('current_round', 0)),
+                    "number1": gs.get('number1'),
+                    "number2": gs.get('number2'),
+                    "messages": messages_list,
+                    "history": list(reversed(hist[-5:])) if hist else []
+                }
+                if extra:
+                    resp.update(extra)
+                return jsonify(resp)
+
+            if action == 'start_game':
+                # Create new game with provided config
+                def _to_int(val, default):
+                    try:
+                        return int(val)
+                    except (TypeError, ValueError):
+                        return default
+                cfg = {
+                    "rounds": _to_int(data.get("rounds"), default_config.get("rounds", 10)),
+                    "max_number": _to_int(data.get("max_number"), default_config.get("max_number", 50)),
+                }
+                session['history'] = []
+                if handler:
+                    initial_state = handler.get_initial_state(cfg)
+                else:
+                    initial_state = {
+                        'score': 0,
+                        'current_round': 0,
+                        'active': False,
+                        'over': False,
+                        'config': cfg,
+                    }
+                initial_state['config'] = cfg
+                initial_state['active'] = True
+                initial_state['over'] = False
+                session['games'][game_id] = initial_state
+                engine = create_game_engine(game_id, initial_state)
+                try:
+                    state = engine.start_round()
+                    if handler and state:
+                        handler.save_state_to_session(initial_state, state)
+                    # Ensure numbers are persisted for addition
+                    if state and hasattr(state, "number1"):
+                        initial_state["number1"] = getattr(state, "number1", None)
+                    if state and hasattr(state, "number2"):
+                        initial_state["number2"] = getattr(state, "number2", None)
+                    session['games'][game_id] = initial_state
+                    # Only call display_round for games that implement the rounding UI expectations
+                    if game_id == 'rounding' and state is not None and hasattr(state, 'current_number'):
+                        ui.display_round(state)
+                    session.modified = True
+                    msgs = ui.get_messages(); ui.clear_messages()
+                    return build_response(msgs, {"started": True, "config": cfg})
+                except Exception as e:
+                    return jsonify({"error": str(e)}), 500
+
+            if action == 'restart':
+                # Reset state using existing config
+                cfg = game_state.get('config', {})
+                if handler:
+                    initial_state = handler.get_initial_state(cfg)
+                else:
+                    initial_state = {
+                        'score': 0,
+                        'current_round': 0,
+                        'active': False,
+                        'over': False,
+                        'config': cfg,
+                    }
+                initial_state['active'] = True
+                initial_state['over'] = False
+                session['history'] = []
+                session['games'][game_id] = initial_state
+                engine = create_game_engine(game_id, initial_state)
+                try:
+                    state = engine.start_round()
+                    if handler and state:
+                        handler.save_state_to_session(initial_state, state)
+                    # Persist numbers for addition
+                    if state and hasattr(state, "number1"):
+                        initial_state["number1"] = getattr(state, "number1", None)
+                    if state and hasattr(state, "number2"):
+                        initial_state["number2"] = getattr(state, "number2", None)
+                    session['games'][game_id] = initial_state
+                    # Only display_round for rounding game
+                    if game_id == 'rounding' and state is not None and hasattr(state, 'current_number'):
+                        ui.display_round(state)
+                    session.modified = True
+                    msgs = ui.get_messages(); ui.clear_messages()
+                    return build_response(msgs, {"started": True, "config": cfg})
+                except Exception as e:
+                    return jsonify({"error": str(e)}), 500
+
+            elif action == 'answer' and game_state['active']:
+                answer = str(data.get('answer', '')).strip()
+                session['last_answer'] = answer
+                if handler:
+                    handler.save_pre_answer_state(game_state)
+                is_correct, state = engine.submit_answer(answer)
+                ui.display_result(is_correct)
+                if 'history' not in session:
+                    session['history'] = []
+                if handler:
+                    history_entry = handler.create_history_entry(answer, state, is_correct)
+                else:
+                    history_entry = {
+                        'answer': answer,
+                        'is_correct': is_correct
+                    }
+                session['history'].append(history_entry)
+                game_state['score'] = engine.score
+                game_state['current_round'] = engine.current_round
+                new_state = engine.start_round()
+                if new_state is None:
+                    ui.display_game_over(state)
+                    game_state['active'] = False
+                    game_state['over'] = True
+                else:
+                    if handler:
+                        handler.save_state_to_session(game_state, new_state)
+                        handler.setup_post_answer_ui(ui, new_state)
+                session['games'][game_id] = game_state
+                msgs = ui.get_messages(); ui.clear_messages()
+                return build_response(msgs)
+
         elif 'answer' in request.form and game_state['active']:
             # Debug capture of raw submit payload
             try:
