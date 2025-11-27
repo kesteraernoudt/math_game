@@ -365,6 +365,197 @@ def game(game_id):
                 msgs = ui.get_messages(); ui.clear_messages()
                 return build_response(msgs)
 
+        # AJAX JSON handling for money game
+        if request.is_json and game_id == 'money':
+            data = request.get_json(silent=True) or {}
+            action = data.get('action')
+
+            def build_money_response(messages_list, extra=None):
+                gs = session['games'][game_id]
+                hist = session.get('history', [])
+                cfg = gs.get('config', {})
+                resp = {
+                    "game_active": gs.get('active', False),
+                    "game_over": gs.get('over', False),
+                    "score": gs.get('score', 0),
+                    "current_round": gs.get('current_round', 0),
+                    "total_rounds": cfg.get('rounds', gs.get('current_round', 0)),
+                    "item": {
+                        "name": gs.get('item_name', ''),
+                        "price": gs.get('item_price', 0),
+                        "tax_amount": gs.get('tax_amount', 0),
+                        "total_due": gs.get('total_due', 0),
+                        "tax_rate": gs.get('tax_rate', cfg.get('tax_rate', default_config.get('tax_rate', 0.0))),
+                        "show_tax": gs.get('show_tax', cfg.get('show_tax', default_config.get('show_tax', True))),
+                        "image": gs.get('item_image', ''),
+                    },
+                    "awaiting_retry": gs.get('awaiting_retry', False),
+                    "available_counts": gs.get('available_counts', {20: 999, 10: 999, 5: 999, 1: 999}),
+                    "messages": messages_list,
+                    "history": list(reversed(hist[-6:])) if hist else [],
+                    "full_history": hist,
+                    "config": cfg,
+                }
+                if extra:
+                    resp.update(extra)
+                return jsonify(resp)
+
+            def _bool(val, default):
+                if isinstance(val, bool):
+                    return val
+                if isinstance(val, str):
+                    return val.lower() in ('1', 'true', 'yes', 'on')
+                return default
+
+            def _int(val, default):
+                try:
+                    return int(val)
+                except (TypeError, ValueError):
+                    return default
+
+            def _float(val, default):
+                try:
+                    return float(val)
+                except (TypeError, ValueError):
+                    return default
+
+            if action == 'start_game':
+                cfg = {
+                    "rounds": _int(data.get('rounds'), default_config.get('rounds', 8)),
+                    "max_price": _int(data.get('max_price'), default_config.get('max_price', 50)),
+                    "tax_rate": _float(data.get('tax_rate'), default_config.get('tax_rate', 0.08)),
+                    "show_tax": _bool(data.get('show_tax'), default_config.get('show_tax', True)),
+                    "require_minimal_bills": _bool(data.get('require_minimal_bills'), default_config.get('require_minimal_bills', False)),
+                    "bill_limit_mode": data.get('bill_limit_mode', default_config.get('bill_limit_mode', 'easy')),
+                    "allow_overpay": _bool(data.get('allow_overpay'), default_config.get('allow_overpay', False)),
+                }
+                session['history'] = []
+                if handler:
+                    initial_state = handler.get_initial_state(cfg)
+                else:
+                    initial_state = {
+                        'score': 0,
+                        'current_round': 0,
+                        'active': False,
+                        'over': False,
+                        'config': cfg,
+                    }
+                initial_state['config'] = cfg
+                initial_state['active'] = True
+                initial_state['over'] = False
+                session['games'][game_id] = initial_state
+                engine = create_game_engine(game_id, initial_state)
+                try:
+                    state = engine.start_round()
+                    if handler and state:
+                        handler.save_state_to_session(initial_state, state)
+                    session['games'][game_id] = initial_state
+                    session.modified = True
+                    msgs = ui.get_messages(); ui.clear_messages()
+                    return build_money_response(msgs, {"started": True})
+                except Exception as e:
+                    return jsonify({"error": str(e)}), 500
+
+            if action == 'restart':
+                cfg = game_state.get('config', default_config)
+                if handler:
+                    initial_state = handler.get_initial_state(cfg)
+                else:
+                    initial_state = {
+                        'score': 0,
+                        'current_round': 0,
+                        'active': False,
+                        'over': False,
+                        'config': cfg,
+                    }
+                initial_state['active'] = True
+                initial_state['over'] = False
+                session['history'] = []
+                session['games'][game_id] = initial_state
+                engine = create_game_engine(game_id, initial_state)
+                try:
+                    state = engine.start_round()
+                    if handler and state:
+                        handler.save_state_to_session(initial_state, state)
+                    session['games'][game_id] = initial_state
+                    session.modified = True
+                    msgs = ui.get_messages(); ui.clear_messages()
+                    return build_money_response(msgs, {"started": True})
+                except Exception as e:
+                    return jsonify({"error": str(e)}), 500
+
+            if action == 'reset_to_config':
+                cfg = game_state.get('config', default_config)
+                if handler:
+                    fresh_state = handler.get_initial_state(cfg)
+                else:
+                    fresh_state = {
+                        'score': 0,
+                        'current_round': 0,
+                        'active': False,
+                        'over': False,
+                        'config': cfg,
+                    }
+                fresh_state['active'] = False
+                fresh_state['over'] = False
+                session['history'] = []
+                session['games'][game_id] = fresh_state
+                session.modified = True
+                ui.clear_messages()
+                return build_money_response([], {"game_active": False, "game_over": False})
+
+            if action == 'skip_round' and handler and game_state.get('active'):
+                handler.handle_skip_round(game_state)
+                session.modified = True
+                ui.clear_messages()
+                ui.display_result(False)
+                ui._messages = ["Item skipped. Moving to next round."]
+                return build_money_response(ui.get_messages())
+
+            if action == 'answer' and game_state.get('active'):
+                session['last_submit_payload'] = data
+                session['debug_payload'] = data.get('debug_payload')
+                answer = str(data.get('answer', '')).strip()
+                session['last_answer'] = answer
+                if handler:
+                    handler.save_pre_answer_state(game_state)
+                is_correct, state = engine.submit_answer(answer)
+                try:
+                    session['engine_last_result'] = engine.get_last_result()
+                except Exception:
+                    session['engine_last_result'] = {}
+                try:
+                    session['engine_submit_debug'] = getattr(engine, "_last_result", {})
+                except Exception:
+                    session['engine_submit_debug'] = {}
+                ui.display_result(is_correct)
+                if 'history' not in session:
+                    session['history'] = []
+                if handler:
+                    history_entry = handler.create_history_entry(answer, state, is_correct)
+                else:
+                    history_entry = {'answer': answer, 'is_correct': is_correct}
+                session['history'].append(history_entry)
+                game_state['score'] = engine.score
+                game_state['current_round'] = engine.current_round
+                new_state = engine.start_round()
+                if new_state is None:
+                    ui.display_game_over(state)
+                    game_state['active'] = False
+                    game_state['over'] = True
+                else:
+                    if handler:
+                        handler.save_state_to_session(game_state, new_state)
+                        handler.setup_post_answer_ui(ui, new_state)
+                    else:
+                        if hasattr(new_state, 'item_name'):
+                            game_state['item_name'] = new_state.item_name
+                session['games'][game_id] = game_state
+                msgs = ui.get_messages(); ui.clear_messages()
+                return build_money_response(msgs)
+
+            return jsonify({"error": "Unsupported action"}), 400
+
         # AJAX JSON handling for addition game (no page reload)
         if request.is_json and game_id == 'addition':
             data = request.get_json(silent=True) or {}

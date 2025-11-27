@@ -345,271 +345,269 @@
     </style>
 </head>
 <body>
-    <div class="shell">
-        <div class="panel">
-            {% if game_active %}
-                {% set game_data = session.games[game_id] %}
-                <div class="header">
-                    <div>
-                        <p class="title">{{ game_info.name if game_info else 'Money Match' }}</p>
-                    </div>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                        <div class="round-chip">Round {{ game_data.get('current_round', 0) + 1 }} / {{ game_data.get('config', {}).get('rounds', default_config.get('rounds', 8)) }}</div>
-                        <div class="score-chip">Score {{ game_data.get('score', 0) }}</div>
-                    </div>
-                </div>
-
-                <div class="money-layout">
-                    <div class="info-col">
-                        {% set require_minimal = game_config.get('require_minimal_bills', default_config.get('require_minimal_bills', False)) %}
-                        <div style="display:grid; grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.8fr); gap:14px; align-items:start;">
-                            <div class="item-card">
-                                <img src="{{ game_data.get('item_image') }}" alt="Item image" style="max-height:280px; object-fit:contain; width:100%;">
-                            </div>
-                            <div style="display:flex; flex-direction:column; gap:10px;">
-                                {% if request.args.get('debug_counts') %}
-                                <div style="font-size:12px; color:#f87171; background:rgba(255,255,255,0.06); padding:6px; border-radius:8px;">
-                                    DEBUG submit payload: {{ session.get('last_submit_payload') }}
-                                </div>
-                                {% endif %}
-                                <div>
-                                    <div style="font-size: 40px; font-weight: 900;">${{ game_data.get('item_price', 0) }}</div>
-                                    {% if game_data.get('show_tax', True) %}
-                                        {% set tax_rate_val = game_data.get('tax_rate', default_config.get('tax_rate', 0.08)) %}
-                                        {% set tax_amount_val = game_data.get('tax_amount', 0) %}
-                                        {% set tax_display = ('%.2f' % tax_amount_val) %}
-                                        {% set rate_display = ('%.2f' % (tax_rate_val * 100)) %}
-                                        <div style="font-size: 16px; color: var(--muted); margin-top:4px;">Tax {{ rate_display }}%: ${{ tax_display }}</div>
-                                    {% endif %}
-                                    {% if require_minimal %}
-                                    <div style="font-size: 14px; color: var(--muted); margin-top:4px;">
-                                        Use the fewest bills possible to match the total.
-                                    </div>
-                                    {% endif %}
-                                </div>
-                                <div class="pill total-due" style="background: linear-gradient(135deg, #eab308, #f59e0b); color: #0f172a; border: none; font-size: 24px; padding:16px 20px; box-shadow: 0 10px 18px rgba(0,0,0,0.28); justify-content:space-between; min-width: 220px;">
-                                    <span class="label" style="color:#0f172a;">Total Due</span>
-                                    <span style="font-weight:900; font-size:36px;">${{ '%.2f' % game_data.get('total_due', 0) }}</span>
-                                </div>
-                                <div class="totals" style="width:100%; display:flex; flex-direction:column; gap:10px;">
-                                    <div class="pill">
-                                        <span class="label">You selected</span>
-                                        <span id="selected-total">$0</span>
-                                    </div>
-                                    <div class="pill">
-                                        <span class="label">Difference</span>
-                                        <span id="delta" class="delta bad">$0</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="actions" style="margin-top:12px; display:grid; gap:10px; grid-template-columns: repeat(2, minmax(160px, 1fr)); width:100%;">
-                            <button form="money-form" type="submit" class="btn btn-primary" aria-label="Submit payment" style="font-size:18px;">Submit payment</button>
-                            <button type="button" id="clear-btn" class="btn btn-ghost" aria-label="Clear bills" style="font-size:16px;">Clear bills</button>
-                            <form method="POST" style="display:inline;" aria-label="Skip item">
-                                <button type="submit" name="action" value="skip_round" class="btn btn-ghost" style="font-size:16px;">Skip item</button>
-                            </form>
-                            <form method="POST" style="display:inline;" aria-label="Restart game">
-                                <button type="submit" name="action" value="restart" class="btn btn-danger" style="font-size:16px;">Restart</button>
-                            </form>
-                        </div>
-                        {% if messages %}
-                            <div class="messages" style="margin-top:12px;">
-                                {% for m in messages %}
-                                    <div class="msg {% if 'Correct' in m %}correct{% elif 'Incorrect' in m %}incorrect{% endif %}">{{ m }}</div>
-                                {% endfor %}
-                            </div>
-                        {% elif game_data.get('awaiting_retry') and not (session.history and session.history[-1].get('skipped')) %}
-                            <div class="messages" style="margin-top:12px;">
-                                <div class="msg incorrect">Try again with fewer bills. Aim for the smallest stack that hits the total.</div>
-                            </div>
-                        {% endif %}
-                        {% if request.args.get('debug_counts') and session.history %}
-                        <div class="messages" style="margin-top:8px; font-size:12px; text-align:left; background:rgba(255,255,255,0.05); color:#f87171;">
-                            <strong>DEBUG recent payloads:</strong>
-                            <div>last_submit_payload: {{ session.get('last_submit_payload') }}</div>
-                            <div>engine_last_result: {{ session.get('engine_last_result') }}</div>
-                            <div>engine_submit_debug: {{ session.get('engine_submit_debug') }}</div>
-                            {% set last = session.history[-1] %}
-                            <div>last raw_answer: {{ last.raw_answer if last else '' }}</div>
-                            <div>last debug_payload: {{ last.debug_payload if last else '' }}</div>
-                            <div>last user_counts: {{ last.user_counts if last else '' }}</div>
-                            <div>last best_counts: {{ last.best_counts if last else '' }}</div>
-                        </div>
-                        {% endif %}
-                    </div>
-
-                    <div class="stacks-col">
-                        <form method="POST" id="money-form">
-                            <input type="hidden" name="answer" id="answer-field" value="20:0,10:0,5:0,1:0">
-                            <input type="hidden" id="debug_payload" name="debug_payload" value="">
-                            <input type="hidden" id="count-20" name="count_20" value="0">
-                            <input type="hidden" id="count-10" name="count_10" value="0">
-                            <input type="hidden" id="count-5" name="count_5" value="0">
-                            <input type="hidden" id="count-1" name="count_1" value="0">
-                            <div class="bills stacks-grid">
-                                {% for denom, img in {20:'/static/bills/20.jpg',10:'/static/bills/10.jpg',5:'/static/bills/5.jpg',1:'/static/bills/1.jpg'}.items() %}
-                                <div class="bill-card" data-denom="{{ denom }}">
-                                    <div class="stack-row">
-                                        <div class="stack available" data-denom="{{ denom }}" data-action="add">
-                                            <div class="bill-stack" data-stack="{{ denom }}"></div>
-                                            <div class="stack-label">Tap stack to add</div>
-                                        </div>
-                                        <div class="stack used" data-denom="{{ denom }}" data-action="remove">
-                                            <div class="bill-stack" data-used="{{ denom }}"></div>
-                                            <div class="stack-label">In use</div>
-                                        </div>
-                                    </div>
-                                    <div class="bill-value">${{ denom }} bills</div>
-                <div class="stack-count-chip">
-                    ${{ denom }} in use: <span data-count="{{ denom }}">0</span>
+    {% set game_data = session.games[game_id] if session.games and session.games.get(game_id) else {} %}
+    {% set show_tax_val = game_config.get('show_tax', default_config.get('show_tax', True)) %}
+    {% set req_min_val = game_config.get('require_minimal_bills', default_config.get('require_minimal_bills', False)) %}
+    {% set allow_overpay_val = game_config.get('allow_overpay', default_config.get('allow_overpay', False)) %}
+    {% set limit_mode = game_config.get('bill_limit_mode', default_config.get('bill_limit_mode', 'easy')) %}
+    <div class="shell" id="money-app" data-active="{{ 'true' if game_active else 'false' }}" data-over="{{ 'true' if game_over else 'false' }}">
+        <div class="panel" id="config-panel" style="{% if game_active or game_over %}display:none;{% endif %}">
+            <div class="header" style="margin-bottom:12px;">
+                <div>
+                    <p class="title">{{ game_info.name if game_info else 'Money Match' }}</p>
+                    <div style="color: var(--muted)">Match the total using the smallest number of $20, $10, $5, and $1 bills.</div>
                 </div>
             </div>
-            {% endfor %}
-        </div>
-                        </form>
-                    </div>
-                </div>
-
-                {% if session.history %}
-                    <div class="history">
-                        <h3>Recent attempts</h3>
-                        <div class="history-list">
-                            {% for entry in session.history[-6:]|reverse %}
-                                <div class="history-item">
-                                    <div>
-                                        <strong>{{ entry.item_name }}</strong>
-                                        <div><small>Price ${{ entry.item_price }}{% if entry.show_tax %} + tax ${{ entry.tax_amount }}{% endif %}</small></div>
-                                    </div>
-                                    <div>
-                                        <div><small>Your bills</small></div>
-                                        <div>{{ entry.user_counts.get(20,0) }}x$20, {{ entry.user_counts.get(10,0) }}x$10, {{ entry.user_counts.get(5,0) }}x$5, {{ entry.user_counts.get(1,0) }}x$1</div>
-                                        <div><small>Total ${{ entry.user_total or 0 }}</small></div>
-                                    </div>
-                                    <div>
-                                        {% if entry.skipped %}
-                                            <span style="color: var(--muted); font-weight:700;">Skipped</span>
-                                        {% elif entry.is_correct %}
-                                            <span style="color: var(--accent); font-weight:700;">Correct</span>
-                                        {% else %}
-                                            <span style="color: var(--error); font-weight:700;">Try again</span>
-                                        {% endif %}
-                                        <div><small>Best: {{ entry.best_counts.get(20,0) }}x$20, {{ entry.best_counts.get(10,0) }}x$10, {{ entry.best_counts.get(5,0) }}x$5, {{ entry.best_counts.get(1,0) }}x$1</small></div>
-                                    </div>
-                                </div>
-                            {% endfor %}
+            <form id="config-form">
+                <div class="config-grid" style="align-items:flex-start; gap:18px; font-size:18px;">
+                    <div style="display:flex; flex-direction:column; gap:10px; padding:6px 0;">
+                        <label style="display:flex; align-items:center; gap:12px; font-size:20px; font-weight:700; cursor:pointer;" for="show_tax">
+                            <input type="checkbox" id="show_tax" name="show_tax" value="true" {% if show_tax_val %}checked{% endif %}>
+                            <span>Display sales tax</span>
+                        </label>
+                        <div id="tax_rate_wrap" style="margin-top:8px; {% if not show_tax_val %}display:none;{% endif %}">
+                            <label for="tax_rate" style="margin-bottom:4px; font-size:18px;">Sales tax rate</label>
+                            <input type="number" step="0.00001" min="0" id="tax_rate" name="tax_rate" value="{{ game_config.get('tax_rate', default_config.get('tax_rate', 0.08)) }}" style="font-size:18px; padding:12px; border-radius:10px;">
                         </div>
                     </div>
-                {% endif %}
+                    <div style="display:flex; flex-direction:column; gap:10px; padding:6px 0;">
+                        <label for="rounds" style="font-size:20px; font-weight:700;">Rounds</label>
+                        <input type="number" id="rounds" name="rounds" min="1" value="{{ game_config.get('rounds', default_config.get('rounds', 8)) }}" required style="font-size:18px; padding:12px; border-radius:10px;">
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:10px; padding:6px 0;">
+                        <label for="max_price" style="font-size:20px; font-weight:700;">Max item price</label>
+                        <input type="number" id="max_price" name="max_price" min="1" value="{{ game_config.get('max_price', default_config.get('max_price', 50)) }}" required style="font-size:18px; padding:12px; border-radius:10px;">
+                    </div>
+                    <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center; padding:6px 0;">
+                        <label style="display:flex; align-items:center; gap:10px; font-size:20px; font-weight:700; cursor:pointer;" for="require_minimal_bills">
+                            <input type="checkbox" id="require_minimal_bills" name="require_minimal_bills" value="true" {% if req_min_val %}checked{% endif %}>
+                            <span>Require fewest bills</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:10px; font-size:20px; font-weight:700; cursor:pointer;" for="allow_overpay">
+                            <input type="checkbox" id="allow_overpay" name="allow_overpay" value="true" {% if allow_overpay_val %}checked{% endif %}>
+                            <span>Allow overpay</span>
+                        </label>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:10px; padding:6px 0;">
+                        <label for="bill_limit_mode" style="font-size:20px; font-weight:700;">Bill availability</label>
+                        <select id="bill_limit_mode" name="bill_limit_mode" style="font-size:18px; padding:12px; border-radius:10px;">
+                            <option value="easy" {% if limit_mode == 'easy' %}selected{% endif %}>Easy (unlimited)</option>
+                            <option value="intermediate" {% if limit_mode == 'intermediate' %}selected{% endif %}>Intermediate (fixed limits)</option>
+                            <option value="hard" {% if limit_mode == 'hard' %}selected{% endif %}>Hard (random limits)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="actions" style="margin-top:18px;">
+                    <button type="button" id="start-game-btn" class="btn btn-primary" style="font-size:20px; padding:14px 22px;">Start game</button>
+                </div>
+            </form>
+        </div>
 
-            {% elif game_over %}
-                {% set game_data = session.games[game_id] %}
-                <div class="endcard">
-                    <p class="title" style="margin-bottom:6px;">{{ game_info.name if game_info else 'Money Match' }}</p>
-                    <div style="font-size:22px; margin-bottom:10px;">Final Score: {{ game_data.get('score',0) }} / {{ game_data.get('current_round',0) }}</div>
-                    <form method="POST" style="margin-top:10px;">
-                        <button type="submit" name="action" value="restart" class="btn btn-primary" style="padding: 14px 20px;">Play again</button>
+        <div class="panel" id="play-panel" style="{% if not game_active %}display:none;{% endif %}">
+            <div class="header">
+                <div>
+                    <p class="title">{{ game_info.name if game_info else 'Money Match' }}</p>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <div class="round-chip" id="round-chip">Round {{ game_data.get('current_round', 0) + 1 }} / {{ game_data.get('config', {}).get('rounds', default_config.get('rounds', 8)) }}</div>
+                    <div class="score-chip" id="score-chip">Score {{ game_data.get('score', 0) }}</div>
+                </div>
+            </div>
+            <div class="money-layout" id="play-layout">
+                <div class="info-col">
+                    <div style="display:grid; grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.8fr); gap:14px; align-items:start;">
+                        <div class="item-card">
+                            <img id="item-image" src="{{ game_data.get('item_image') }}" alt="Item image" style="max-height:280px; object-fit:contain; width:100%;">
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:10px;">
+                            <div>
+                                <div id="item-price" style="font-size: 40px; font-weight: 900;">${{ game_data.get('item_price', 0) }}</div>
+                                {% if game_data.get('show_tax', True) %}
+                                    {% set tax_rate_val = game_data.get('tax_rate', default_config.get('tax_rate', 0.08)) %}
+                                    {% set tax_amount_val = game_data.get('tax_amount', 0) %}
+                                    {% set tax_display = ('%.2f' % tax_amount_val) %}
+                                    {% set rate_display = ('%.2f' % (tax_rate_val * 100)) %}
+                                    <div id="tax-info" style="font-size: 16px; color: var(--muted); margin-top:4px;">Tax {{ rate_display }}%: ${{ tax_display }}</div>
+                                {% else %}
+                                    <div id="tax-info" style="font-size: 16px; color: var(--muted); margin-top:4px; display:none;"></div>
+                                {% endif %}
+                                <div id="require-hint" style="font-size: 14px; color: var(--muted); margin-top:4px; {% if not req_min_val %}display:none;{% endif %}">
+                                    Use the fewest bills possible to match the total.
+                                </div>
+                            </div>
+                            <div class="pill total-due" style="background: linear-gradient(135deg, #eab308, #f59e0b); color: #0f172a; border: none; font-size: 24px; padding:16px 20px; box-shadow: 0 10px 18px rgba(0,0,0,0.28); justify-content:space-between; min-width: 220px;">
+                                <span class="label" style="color:#0f172a;">Total Due</span>
+                                <span id="total-due" style="font-weight:900; font-size:36px;">${{ '%.2f' % game_data.get('total_due', 0) }}</span>
+                            </div>
+                            <div class="totals" style="width:100%; display:flex; flex-direction:column; gap:10px;">
+                                <div class="pill">
+                                    <span class="label">You selected</span>
+                                    <span id="selected-total">$0</span>
+                                </div>
+                                <div class="pill">
+                                    <span class="label">Difference</span>
+                                    <span id="delta" class="delta bad">$0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="actions" style="margin-top:12px; display:grid; gap:10px; grid-template-columns: repeat(2, minmax(160px, 1fr)); width:100%;">
+                        <button id="submit-btn" class="btn btn-primary" aria-label="Submit payment" style="font-size:18px;">Submit payment</button>
+                        <button type="button" id="clear-btn" class="btn btn-ghost" aria-label="Clear bills" style="font-size:16px;">Clear bills</button>
+                        <button type="button" id="skip-btn" class="btn btn-ghost" style="font-size:16px;">Skip item</button>
+                        <button type="button" id="restart-btn" class="btn btn-danger" style="font-size:16px;">Restart</button>
+                    </div>
+                    <div class="messages" id="messages-box" style="margin-top:12px;">
+                        {% for m in messages %}
+                            <div class="msg {% if 'Correct' in m %}correct{% elif 'Incorrect' in m %}incorrect{% endif %}">{{ m }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="stacks-col">
+                    <form id="money-form">
+                        <input type="hidden" name="answer" id="answer-field" value="20:0,10:0,5:0,1:0">
+                        <input type="hidden" id="debug_payload" name="debug_payload" value="">
+                        <input type="hidden" id="count-20" name="count_20" value="0">
+                        <input type="hidden" id="count-10" name="count_10" value="0">
+                        <input type="hidden" id="count-5" name="count_5" value="0">
+                        <input type="hidden" id="count-1" name="count_1" value="0">
+                        <div class="bills stacks-grid">
+                            {% for denom, img in {20:'/static/bills/20.jpg',10:'/static/bills/10.jpg',5:'/static/bills/5.jpg',1:'/static/bills/1.jpg'}.items() %}
+                            <div class="bill-card" data-denom="{{ denom }}">
+                                <div class="stack-row">
+                                    <div class="stack available" data-denom="{{ denom }}" data-action="add">
+                                        <div class="bill-stack" data-stack="{{ denom }}"></div>
+                                        <div class="stack-label">Tap stack to add</div>
+                                    </div>
+                                    <div class="stack used" data-denom="{{ denom }}" data-action="remove">
+                                        <div class="bill-stack" data-used="{{ denom }}"></div>
+                                        <div class="stack-label">In use</div>
+                                    </div>
+                                </div>
+                                <div class="bill-value">${{ denom }} bills</div>
+                                <div class="stack-count-chip">
+                                    ${{ denom }} in use: <span data-count="{{ denom }}">0</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
                     </form>
                 </div>
-                {% if session.history %}
-                    <div class="history">
-                        <h3>All attempts</h3>
-                        <div class="history-list">
-                            {% for entry in session.history %}
-                                <div class="history-item">
-                                    <div>
-                                        <strong>{{ entry.item_name }}</strong>
-                                        <div><small>Price ${{ entry.item_price }}{% if entry.show_tax %} + tax ${{ entry.tax_amount }}{% endif %}</small></div>
-                                    </div>
-                                    <div>
-                                        <div><small>Your bills</small></div>
-                                        <div>{{ entry.user_counts.get(20,0) }}x$20, {{ entry.user_counts.get(10,0) }}x$10, {{ entry.user_counts.get(5,0) }}x$5, {{ entry.user_counts.get(1,0) }}x$1</div>
-                                        <div><small>Total ${{ entry.user_total or 0 }}</small></div>
-                                    </div>
-                                    <div>
-                                        {% if entry.skipped %}
-                                            <span style="color: var(--muted); font-weight:700;">Skipped</span>
-                                        {% elif entry.is_correct %}
-                                            <span style="color: var(--accent); font-weight:700;">Correct</span>
-                                        {% else %}
-                                            <span style="color: var(--error); font-weight:700;">Try again</span>
-                                        {% endif %}
-                                        <div><small>Best: {{ entry.best_counts.get(20,0) }}x$20, {{ entry.best_counts.get(10,0) }}x$10, {{ entry.best_counts.get(5,0) }}x$5, {{ entry.best_counts.get(1,0) }}x$1</small></div>
-                                    </div>
-                                </div>
-                            {% endfor %}
+            </div>
+            <div class="history" style="margin-top:18px;">
+                <h3>Recent attempts</h3>
+                <div class="history-list" id="history-list">
+                    {% if session.history %}
+                        {% for entry in session.history[-6:]|reverse %}
+                        <div class="history-item">
+                            <div>
+                                <strong>{{ entry.item_name }}</strong>
+                                <div><small>Price ${{ entry.item_price }}{% if entry.show_tax %} + tax ${{ entry.tax_amount }}{% endif %}</small></div>
+                            </div>
+                            <div>
+                                <div><small>Your bills</small></div>
+                                <div>{{ entry.user_counts.get(20,0) }}x$20, {{ entry.user_counts.get(10,0) }}x$10, {{ entry.user_counts.get(5,0) }}x$5, {{ entry.user_counts.get(1,0) }}x$1</div>
+                                <div><small>Total ${{ entry.user_total or 0 }}</small></div>
+                            </div>
+                            <div>
+                                {% if entry.skipped %}
+                                    <span style="color: var(--muted); font-weight:700;">Skipped</span>
+                                {% elif entry.is_correct %}
+                                    <span style="color: var(--accent); font-weight:700;">Correct</span>
+                                {% else %}
+                                    <span style="color: var(--error); font-weight:700;">Try again</span>
+                                {% endif %}
+                                <div><small>Best: {{ entry.best_counts.get(20,0) }}x$20, {{ entry.best_counts.get(10,0) }}x$10, {{ entry.best_counts.get(5,0) }}x$5, {{ entry.best_counts.get(1,0) }}x$1</small></div>
+                            </div>
                         </div>
-                    </div>
-                {% endif %}
-
-            {% else %}
-                <div class="header" style="margin-bottom:16px;">
-                    <div>
-                        <p class="title">{{ game_info.name if game_info else 'Money Match' }}</p>
-                        <div style="color: var(--muted)">Match the total using the smallest number of $20, $5, and $1 bills.</div>
-                    </div>
+                        {% endfor %}
+                    {% endif %}
                 </div>
-                        <form method="POST">
-                            <div class="config-grid" style="align-items:flex-start; gap:18px; font-size:18px;">
-                                <div style="display:flex; flex-direction:column; gap:10px; padding:6px 0;">
-                                    {% set show_tax_val = game_config.get('show_tax', default_config.get('show_tax', True)) %}
-                                    <label style="display:flex; align-items:center; gap:12px; font-size:20px; font-weight:700; cursor:pointer;" for="show_tax">
-                                        <input type="checkbox" id="show_tax" name="show_tax" value="true" {% if show_tax_val %}checked{% endif %}>
-                                        <span>Display sales tax</span>
-                                    </label>
-                                    <div id="tax_rate_wrap" style="margin-top:8px; {% if not show_tax_val %}display:none;{% endif %}">
-                                        <label for="tax_rate" style="margin-bottom:4px; font-size:18px;">Sales tax rate</label>
-                                        <input type="number" step="0.00001" min="0" id="tax_rate" name="tax_rate" value="{{ game_config.get('tax_rate', default_config.get('tax_rate', 0.08)) }}" style="font-size:18px; padding:12px; border-radius:10px;">
-                                    </div>
-                                </div>
-                                <div style="display:flex; flex-direction:column; gap:10px; padding:6px 0;">
-                                    <label for="rounds" style="font-size:20px; font-weight:700;">Rounds</label>
-                                    <input type="number" id="rounds" name="rounds" min="1" value="{{ game_config.get('rounds', default_config.get('rounds', 8)) }}" required style="font-size:18px; padding:12px; border-radius:10px;">
-                                </div>
-                                <div style="display:flex; flex-direction:column; gap:10px; padding:6px 0;">
-                                    <label for="max_price" style="font-size:20px; font-weight:700;">Max item price</label>
-                                    <input type="number" id="max_price" name="max_price" min="1" value="{{ game_config.get('max_price', default_config.get('max_price', 50)) }}" required style="font-size:18px; padding:12px; border-radius:10px;">
-                                </div>
-                                <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center; padding:6px 0;">
-                                    {% set req_min_val = game_config.get('require_minimal_bills', default_config.get('require_minimal_bills', False)) %}
-                                    <label style="display:flex; align-items:center; gap:10px; font-size:20px; font-weight:700; cursor:pointer;" for="require_minimal_bills">
-                                        <input type="checkbox" id="require_minimal_bills" name="require_minimal_bills" value="true" {% if req_min_val %}checked{% endif %}>
-                                        <span>Require fewest bills</span>
-                                    </label>
-                                    {% set allow_overpay_val = game_config.get('allow_overpay', default_config.get('allow_overpay', False)) %}
-                                    <label style="display:flex; align-items:center; gap:10px; font-size:20px; font-weight:700; cursor:pointer;" for="allow_overpay">
-                                        <input type="checkbox" id="allow_overpay" name="allow_overpay" value="true" {% if allow_overpay_val %}checked{% endif %}>
-                                        <span>Allow overpay</span>
-                                    </label>
-                                </div>
-                                <div style="display:flex; flex-direction:column; gap:10px; padding:6px 0;">
-                                    <label for="bill_limit_mode" style="font-size:20px; font-weight:700;">Bill availability</label>
-                                    <select id="bill_limit_mode" name="bill_limit_mode" style="font-size:18px; padding:12px; border-radius:10px;">
-                                        {% set limit_mode = game_config.get('bill_limit_mode', default_config.get('bill_limit_mode', 'easy')) %}
-                                        <option value="easy" {% if limit_mode == 'easy' %}selected{% endif %}>Easy (unlimited)</option>
-                                        <option value="intermediate" {% if limit_mode == 'intermediate' %}selected{% endif %}>Intermediate (fixed limits)</option>
-                                        <option value="hard" {% if limit_mode == 'hard' %}selected{% endif %}>Hard (random limits)</option>
-                                    </select>
-                                </div>
+            </div>
+        </div>
+
+        <div class="panel" id="over-panel" style="{% if not game_over %}display:none;{% endif %}">
+            <div class="endcard">
+                <p class="title" style="margin-bottom:6px;">{{ game_info.name if game_info else 'Money Match' }}</p>
+                <div id="final-score" style="font-size:22px; margin-bottom:10px;">
+                    {% if game_active or game_over %}
+                        Final Score: {{ game_data.get('score',0) }} / {{ game_data.get('current_round',0) }}
+                    {% endif %}
+                </div>
+                <button type="button" id="over-reset-btn" class="btn btn-primary" style="padding: 14px 20px;">Play again</button>
+            </div>
+            <div class="history" style="margin-top:18px;">
+                <h3>All attempts</h3>
+                <div class="history-list" id="history-all">
+                    {% if session.history %}
+                        {% for entry in session.history %}
+                        <div class="history-item">
+                            <div>
+                                <strong>{{ entry.item_name }}</strong>
+                                <div><small>Price ${{ entry.item_price }}{% if entry.show_tax %} + tax ${{ entry.tax_amount }}{% endif %}</small></div>
                             </div>
-                            <div class="actions" style="margin-top:18px;">
-                                <button type="submit" name="action" value="start_game" class="btn btn-primary" style="font-size:20px; padding:14px 22px;">Start game</button>
+                            <div>
+                                <div><small>Your bills</small></div>
+                                <div>{{ entry.user_counts.get(20,0) }}x$20, {{ entry.user_counts.get(10,0) }}x$10, {{ entry.user_counts.get(5,0) }}x$5, {{ entry.user_counts.get(1,0) }}x$1</div>
+                                <div><small>Total ${{ entry.user_total or 0 }}</small></div>
                             </div>
-                        </form>
-            {% endif %}
+                            <div>
+                                {% if entry.skipped %}
+                                    <span style="color: var(--muted); font-weight:700;">Skipped</span>
+                                {% elif entry.is_correct %}
+                                    <span style="color: var(--accent); font-weight:700;">Correct</span>
+                                {% else %}
+                                    <span style="color: var(--error); font-weight:700;">Try again</span>
+                                {% endif %}
+                                <div><small>Best: {{ entry.best_counts.get(20,0) }}x$20, {{ entry.best_counts.get(10,0) }}x$10, {{ entry.best_counts.get(5,0) }}x$5, {{ entry.best_counts.get(1,0) }}x$1</small></div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        (function(){
-            const counts = {20: 0, 10: 0, 5: 0, 1: 0};
-            const maxCounts = {{ game_state.available_counts if game_state and game_state.get('available_counts') else session.games[game_id].get('available_counts', {'20':999,'10':999,'5':999,'1':999})|tojson }};
-            const pendingToUsed = {20:0, 10:0, 5:0, 1:0};   // bills in-flight from avail -> used
-            const pendingToAvail = {20:0, 10:0, 5:0, 1:0};  // bills in-flight from used -> avail
-            const answerField = document.getElementById('answer-field');
+        document.addEventListener('DOMContentLoaded', function(){
+            const app = document.getElementById('money-app');
+            const configPanel = document.getElementById('config-panel');
+            const playPanel = document.getElementById('play-panel');
+            const overPanel = document.getElementById('over-panel');
+            const playShell = document.getElementById('play-shell');
+            const playWrapper = document.getElementById('play-wrapper');
+            const configForm = document.getElementById('config-form');
+            const startBtn = document.getElementById('start-game-btn');
+            const submitBtn = document.getElementById('submit-btn');
+            const skipBtn = document.getElementById('skip-btn');
+            const restartBtn = document.getElementById('restart-btn');
+            const overResetBtn = document.getElementById('over-reset-btn');
+            const footerRestart = document.getElementById('footer-restart');
+            const fsBtn = document.getElementById('fullscreen-btn');
+            const roundChip = document.getElementById('round-chip');
+            const scoreChip = document.getElementById('score-chip');
+            const itemPriceEl = document.getElementById('item-price');
+            const taxInfo = document.getElementById('tax-info');
+            const requireHint = document.getElementById('require-hint');
+            const totalDueEl = document.getElementById('total-due');
             const selectedTotal = document.getElementById('selected-total');
             const deltaEl = document.getElementById('delta');
-            const needed = parseFloat('{{ "%.2f"|format(session.games[game_id].get("total_due", 0) if game_active else 0) }}');
+            const messagesBox = document.getElementById('messages-box');
+            const historyRecent = document.getElementById('history-list');
+            const historyAll = document.getElementById('history-all');
+            const finalScore = document.getElementById('final-score');
+            const itemImg = document.getElementById('item-image');
+            const answerField = document.getElementById('answer-field');
+            const debugInput = document.getElementById('debug_payload');
+            const showTaxSel = document.getElementById('show_tax');
+            const taxWrap = document.getElementById('tax_rate_wrap');
+
+            const counts = {20:0, 10:0, 5:0, 1:0};
+            const pendingToUsed = {20:0, 10:0, 5:0, 1:0};
+            const pendingToAvail = {20:0, 10:0, 5:0, 1:0};
+            let maxCounts = {{ game_data.get('available_counts', {'20':999,'10':999,'5':999,'1':999})|tojson }};
+            let totalDue = parseFloat('{{ "%.2f"|format(game_data.get("total_due", 0) if game_active else 0) }}') || 0;
             const debugCounts = {{ 'true' if request.args.get('debug_counts') else 'false' }};
             let debugBox = null;
             if (debugCounts) {
@@ -628,26 +626,36 @@
                 document.body.appendChild(debugBox);
             }
 
+            function normalizeCounts(obj) {
+                const mapped = {};
+                Object.keys(obj || {}).forEach(key => {
+                    const denom = parseInt(key, 10);
+                    mapped[denom] = obj[key];
+                });
+                return mapped;
+            }
+
+            function resetCounts() {
+                counts[20] = counts[10] = counts[5] = counts[1] = 0;
+                pendingToAvail[20] = pendingToAvail[10] = pendingToAvail[5] = pendingToAvail[1] = 0;
+                pendingToUsed[20] = pendingToUsed[10] = pendingToUsed[5] = pendingToUsed[1] = 0;
+            }
+
             function syncAnswer() {
                 if (answerField) {
                     answerField.value = `20:${counts[20]},10:${counts[10]},5:${counts[5]},1:${counts[1]}`;
                 }
-                const c20 = document.getElementById('count-20');
-                const c10 = document.getElementById('count-10');
-                const c5 = document.getElementById('count-5');
-                const c1 = document.getElementById('count-1');
-                if (c20) c20.value = counts[20];
-                if (c10) c10.value = counts[10];
-                if (c5) c5.value = counts[5];
-                if (c1) c1.value = counts[1];
+                ['20','10','5','1'].forEach(denom => {
+                    const input = document.getElementById(`count-${denom}`);
+                    if (input) input.value = counts[parseInt(denom,10)];
+                });
             }
 
             function updateDebug(effCounts) {
                 if (!debugCounts || !debugBox) return;
                 const eff = effCounts || counts;
-                const payloadInput = document.getElementById('debug_payload');
-                if (payloadInput) {
-                    payloadInput.value = JSON.stringify({
+                if (debugInput) {
+                    debugInput.value = JSON.stringify({
                         counts,
                         pendingToUsed,
                         pendingToAvail,
@@ -665,15 +673,14 @@
                     `answer=${answerField ? answerField.value : ''}`;
             }
 
-
             function updateTotals() {
                 const total = counts[20]*20 + counts[10]*10 + counts[5]*5 + counts[1];
                 if (selectedTotal) selectedTotal.textContent = `$${total}`;
                 if (deltaEl) {
-                    const delta = total - Math.ceil(needed);
-                    const displayDelta = Math.round(delta * 100) / 100;
+                    const delta = total - Math.ceil(totalDue);
+                    const displayDelta = Math.round((total - totalDue) * 100) / 100;
                     deltaEl.textContent = `${displayDelta >= 0 ? '+' : ''}$${displayDelta.toFixed(2)}`;
-                    deltaEl.className = delta === 0 ? 'delta ok' : 'delta bad';
+                    deltaEl.className = Math.abs(delta) < 0.01 ? 'delta ok' : 'delta bad';
                 }
                 document.querySelectorAll('[data-count]').forEach(el => {
                     const denom = Number(el.getAttribute('data-count'));
@@ -689,13 +696,13 @@
                     const used = document.querySelector(`[data-used="${denom}"]`);
                     const max = Number(maxCounts[String(denom)] ?? maxCounts[denom] ?? 999);
                     const remaining = Math.max(0, max - counts[denom] - pendingToUsed[denom] + pendingToAvail[denom]);
-                    const usedCount = Math.max(0, counts[denom]); // only show committed in used
-                    if (available) buildStack(available, remaining, denom, false);
-                    if (used) buildStack(used, usedCount, denom, true);
+                    const usedCount = Math.max(0, counts[denom]);
+                    if (available) buildStack(available, remaining, denom);
+                    if (used) buildStack(used, usedCount, denom);
                 });
             }
 
-            function buildStack(container, count, denom, isUsed) {
+            function buildStack(container, count, denom) {
                 container.innerHTML = '';
                 const layers = Math.max(0, count);
                 for (let i = 0; i < layers; i++) {
@@ -737,15 +744,6 @@
                 timer = setTimeout(cleanup, 340);
             }
 
-            function changeCount(denom, dir, skipRender=false) {
-                const max = Number(maxCounts[String(denom)] ?? maxCounts[denom] ?? 999);
-                counts[denom] = Math.max(0, Math.min(max, counts[denom] + dir));
-                if (!skipRender) {
-                    renderStacks();
-                    updateTotals();
-                }
-            }
-
             function handleStackTap(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -758,7 +756,7 @@
                     const used = document.querySelector(`.stack.used[data-denom="${denom}"]`);
                     pendingToUsed[denom] += 1;
                     renderStacks();
-                    updateTotals(); // totals still based on committed counts; ok
+                    updateTotals();
                     updateDebug();
                     flyBill(denom, stack, used, () => {
                         pendingToUsed[denom] = Math.max(0, pendingToUsed[denom]-1);
@@ -792,54 +790,295 @@
                 stack.addEventListener('click', handleStackTap);
             });
 
+            function renderHistory(list, target) {
+                if (!target) return;
+                target.innerHTML = '';
+                (list || []).forEach(entry => {
+                    const user = entry.user_counts || {};
+                    const best = entry.best_counts || {};
+                    const div = document.createElement('div');
+                    div.className = 'history-item';
+                    div.innerHTML = `
+                        <div>
+                            <strong>${entry.item_name || ''}</strong>
+                            <div><small>Price $${entry.item_price || 0}${entry.show_tax ? ' + tax $' + (entry.tax_amount || 0) : ''}</small></div>
+                        </div>
+                        <div>
+                            <div><small>Your bills</small></div>
+                            <div>${user[20] || 0}x$20, ${user[10] || 0}x$10, ${user[5] || 0}x$5, ${user[1] || 0}x$1</div>
+                            <div><small>Total $${entry.user_total || 0}</small></div>
+                        </div>
+                        <div>
+                            ${entry.skipped ? '<span style="color: var(--muted); font-weight:700;">Skipped</span>' :
+                                entry.is_correct ? '<span style="color: var(--accent); font-weight:700;">Correct</span>' :
+                                '<span style="color: var(--error); font-weight:700;">Try again</span>'}
+                            <div><small>Best: ${best[20] || 0}x$20, ${best[10] || 0}x$10, ${best[5] || 0}x$5, ${best[1] || 0}x$1</small></div>
+                        </div>`;
+                    target.appendChild(div);
+                });
+            }
+
+            async function submitAjax(action, payload = {}) {
+                const body = Object.assign({ action }, payload);
+                const res = await fetch(location.pathname, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(body)
+                });
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(`Network error ${res.status}: ${text}`);
+                }
+                return res.json();
+            }
+
+            function applyState(data) {
+                if (!data) return;
+                if (app) {
+                    app.dataset.active = data.game_active ? 'true' : 'false';
+                    app.dataset.over = data.game_over ? 'true' : 'false';
+                }
+                const totalRounds = data.total_rounds || (data.config && data.config.rounds) || 0;
+                if (roundChip) {
+                    const roundDisplay = data.game_over ? totalRounds : Math.min(data.current_round + 1, totalRounds);
+                    roundChip.textContent = `Round ${roundDisplay} / ${totalRounds}`;
+                }
+                if (scoreChip) scoreChip.textContent = `Score ${data.score}`;
+                const item = data.item || {};
+                if (itemPriceEl) itemPriceEl.textContent = `$${item.price ?? 0}`;
+                if (taxInfo) {
+                    if (item.show_tax) {
+                        taxInfo.style.display = 'block';
+                        const rate = item.tax_rate !== undefined ? item.tax_rate : 0;
+                        taxInfo.textContent = `Tax ${(rate * 100).toFixed(2)}%: $${Number(item.tax_amount || 0).toFixed(2)}`;
+                    } else {
+                        taxInfo.style.display = 'none';
+                    }
+                }
+                if (requireHint) {
+                    requireHint.style.display = (data.config && data.config.require_minimal_bills) ? 'block' : 'none';
+                }
+                if (totalDueEl) totalDueEl.textContent = `$${Number(item.total_due || 0).toFixed(2)}`;
+                if (itemImg && item.image) itemImg.src = item.image;
+                totalDue = Number(item.total_due || 0);
+                maxCounts = normalizeCounts(data.available_counts || {});
+                resetCounts();
+                renderStacks();
+                updateTotals();
+                if (messagesBox) {
+                    messagesBox.innerHTML = '';
+                    (data.messages || []).forEach(m => {
+                        const div = document.createElement('div');
+                        div.className = 'msg';
+                        if (m.includes('Correct')) div.classList.add('correct');
+                        else if (m.includes('Incorrect')) div.classList.add('incorrect');
+                        div.textContent = m;
+                        messagesBox.appendChild(div);
+                    });
+                }
+                renderHistory(data.history || [], historyRecent);
+                renderHistory(data.full_history || [], historyAll);
+                if (finalScore) {
+                    finalScore.textContent = `Final Score: ${data.score} / ${totalRounds}`;
+                }
+                if (data.config) {
+                    const cfg = data.config;
+                    const setVal = (id, val) => {
+                        const el = document.getElementById(id);
+                        if (el) el.value = val;
+                    };
+                    setVal('rounds', cfg.rounds);
+                    setVal('max_price', cfg.max_price);
+                    const setBool = (id, val) => {
+                        const el = document.getElementById(id);
+                        if (el) el.checked = !!val;
+                    };
+                    setBool('show_tax', cfg.show_tax);
+                    setBool('require_minimal_bills', cfg.require_minimal_bills);
+                    setBool('allow_overpay', cfg.allow_overpay);
+                    const taxRateInput = document.getElementById('tax_rate');
+                    if (taxRateInput && cfg.tax_rate !== undefined) taxRateInput.value = cfg.tax_rate;
+                    const billMode = document.getElementById('bill_limit_mode');
+                    if (billMode && cfg.bill_limit_mode) billMode.value = cfg.bill_limit_mode;
+                    if (taxWrap && showTaxSel) {
+                        taxWrap.style.display = showTaxSel.checked ? 'block' : 'none';
+                    }
+                }
+                if (configPanel) configPanel.style.display = (data.game_active || data.game_over) ? 'none' : 'block';
+                if (playPanel) playPanel.style.display = data.game_active ? 'block' : 'none';
+                if (overPanel) overPanel.style.display = data.game_over ? 'block' : 'none';
+                applyOrientationLayout();
+                updateDebug();
+            }
+
+            function effectiveAnswer() {
+                const eff = {20:0,10:0,5:0,1:0};
+                [20,10,5,1].forEach(denom => {
+                    const base = counts[denom] || 0;
+                    const net = (pendingToUsed[denom] || 0) - (pendingToAvail[denom] || 0);
+                    const max = Number(maxCounts[String(denom)] ?? maxCounts[denom] ?? 999);
+                    eff[denom] = Math.max(0, Math.min(max, base + net));
+                });
+                if (answerField) answerField.value = `20:${eff[20]},10:${eff[10]},5:${eff[5]},1:${eff[1]}`;
+                updateDebug(eff);
+                return eff;
+            }
+
             const clearBtn = document.getElementById('clear-btn');
             if (clearBtn) {
                 clearBtn.addEventListener('click', (e) => {
                     e.preventDefault();
-                    counts[20] = counts[10] = counts[5] = counts[1] = 0;
-                    pendingToUsed[20] = pendingToUsed[10] = pendingToUsed[5] = pendingToUsed[1] = 0;
-                    pendingToAvail[20] = pendingToAvail[10] = pendingToAvail[5] = pendingToAvail[1] = 0;
+                    resetCounts();
                     renderStacks();
                     updateTotals();
                 });
             }
 
-            const moneyForm = document.getElementById('money-form');
-            if (moneyForm) {
-                moneyForm.addEventListener('submit', () => {
-                    const eff = {20:0,10:0,5:0,1:0};
-                    [20,10,5,1].forEach(denom => {
-                        const base = counts[denom] || 0;
-                        const net = (pendingToUsed[denom] || 0) - (pendingToAvail[denom] || 0);
-                        const max = Number(maxCounts[String(denom)] ?? maxCounts[denom] ?? 999);
-                        eff[denom] = Math.max(0, Math.min(max, base + net));
-                    });
-                    if (answerField) {
-                        answerField.value = `20:${eff[20]},10:${eff[10]},5:${eff[5]},1:${eff[1]}`;
-                    }
-                    updateDebug(eff);
-                });
-            }
-
-            // Show/hide tax rate input based on checkbox in config
-            const showTaxSel = document.getElementById('show_tax');
-            const taxWrap = document.getElementById('tax_rate_wrap');
             if (showTaxSel && taxWrap) {
-                const syncTax = () => {
-                    taxWrap.style.display = showTaxSel.checked ? 'block' : 'none';
-                };
+                const syncTax = () => taxWrap.style.display = showTaxSel.checked ? 'block' : 'none';
                 showTaxSel.addEventListener('change', syncTax);
                 syncTax();
             }
 
+            if (startBtn) {
+                startBtn.addEventListener('click', async () => {
+                    startBtn.disabled = true;
+                    try {
+                        const payload = {
+                            rounds: document.getElementById('rounds')?.value,
+                            max_price: document.getElementById('max_price')?.value,
+                            tax_rate: document.getElementById('tax_rate')?.value,
+                            show_tax: document.getElementById('show_tax')?.checked,
+                            require_minimal_bills: document.getElementById('require_minimal_bills')?.checked,
+                            bill_limit_mode: document.getElementById('bill_limit_mode')?.value,
+                            allow_overpay: document.getElementById('allow_overpay')?.checked,
+                        };
+                        const data = await submitAjax('start_game', payload);
+                        applyState(data);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Could not start game. Please try again.');
+                    } finally {
+                        startBtn.disabled = false;
+                    }
+                });
+            }
+
+            if (submitBtn) {
+                submitBtn.addEventListener('click', async () => {
+                    if (!app || app.dataset.active !== 'true') return;
+                    const eff = effectiveAnswer();
+                    try {
+                        const data = await submitAjax('answer', {
+                            answer: answerField ? answerField.value : '',
+                            debug_payload: debugInput ? debugInput.value : '',
+                            counts: eff
+                        });
+                        applyState(data);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Could not submit. Please try again.');
+                    }
+                });
+            }
+
+            if (skipBtn) {
+                skipBtn.addEventListener('click', async () => {
+                    try {
+                        const data = await submitAjax('skip_round');
+                        applyState(data);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Could not skip. Please try again.');
+                    }
+                });
+            }
+
+            if (restartBtn) {
+                restartBtn.addEventListener('click', async () => {
+                    try {
+                        const data = await submitAjax('reset_to_config');
+                        applyState(data);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Could not restart. Please try again.');
+                    }
+                });
+            }
+
+            if (overResetBtn) {
+                overResetBtn.addEventListener('click', async () => {
+                    try {
+                        const data = await submitAjax('reset_to_config');
+                        applyState(data);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Could not reset. Please try again.');
+                    }
+                });
+            }
+
+            if (footerRestart) {
+                footerRestart.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    try {
+                        const data = await submitAjax('reset_to_config');
+                        applyState(data);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Could not restart. Please try again.');
+                    }
+                });
+            }
+
+            if (fsBtn) {
+                const updateFsButton = () => {
+                    const isFs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+                    fsBtn.textContent = isFs ? 'Exit full screen' : 'Full screen';
+                };
+                fsBtn.addEventListener('click', () => {
+                    const el = document.documentElement;
+                    const isFs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+                    try {
+                        if (isFs) {
+                            const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+                            if (exit) exit.call(document);
+                        } else {
+                            const request = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+                            if (request) request.call(el);
+                            else alert('For full screen on iPhone/iPad, use “Add to Home Screen” from Safari.');
+                        }
+                    } catch (err) {
+                        console.error(err);
+                    }
+                });
+                document.addEventListener('fullscreenchange', updateFsButton);
+                document.addEventListener('webkitfullscreenchange', updateFsButton);
+                updateFsButton();
+            }
+
+            function applyOrientationLayout() {
+                if (!playWrapper) return;
+                const portrait = window.innerHeight > window.innerWidth;
+                playWrapper.classList.toggle('portrait', portrait);
+                if (playShell) playShell.classList.toggle('portrait', portrait);
+            }
+
+            window.addEventListener('resize', applyOrientationLayout);
+
             renderStacks();
             updateTotals();
-        })();
+            applyOrientationLayout();
+        });
     </script>
     <div style="margin-top:18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
         <a class="nav-link" href="{{ url_for('index') }}">&#x2190; Back to Games</a>
-        <span></span>
-        <span></span>
+        <button id="fullscreen-btn" class="btn btn-ghost" style="padding:10px 18px; font-size:16px;">Full screen</button>
+        <button id="footer-restart" class="btn btn-ghost" style="padding:10px 20px; font-size:16px;">Restart</button>
     </div>
     <div style="margin-top:12px; text-align:center; color: rgba(255,255,255,0.5); font-size: 12px;">
         © Cigav Productions LLC
