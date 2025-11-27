@@ -2,93 +2,76 @@
 <!-- © Cigav Productions LLC -->
 <html>
 <head>
-    <title>{{ game_info.name if game_info else 'Math Game' }}</title>
-    <!-- Font Awesome removed (blocked by browser). Using Unicode arrows and emojis instead. -->
+    <title>{{ game_info.name if game_info else 'Rounding Game' }}</title>
     <style>
         :root {
             --bg: #0b1220;
             --panel: #0e213d;
             --text: #f8fafc;
             --muted: #cbd5e1;
+            --accent: #38bdf8;
         }
         body {
             font-family: Arial, sans-serif;
             max-width: 1100px;
             margin: 0 auto;
-            padding: 24px;
+            padding: 20px;
             text-align: center;
             background: radial-gradient(circle at 15% 20%, #1f2f4f, var(--bg) 60%);
-            color: var(--text);
-            font-size: 18px;
-        }
-        .history {
-            display: flex;
-            flex-direction: column-reverse;
-            gap: 10px;
-            margin: 20px 0;
-            padding: 15px;
-            background-color: rgba(255,255,255,0.04);
-            border-radius: 10px;
-        }
-        .history-item {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-            padding: 8px;
-            background-color: var(--panel);
-            border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.18);
-        }
-        .history-number {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: var(--text);
-        }
-        .history-answer {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--muted);
-        }
-        .history-result {
-            font-size: 1.2em;
-        }
-        .history-result.correct {
-            color: #2ecc71;
-        }
-        .history-result.incorrect {
-            color: #e74c3c;
-        }
-        .message {
-            margin: 10px 0;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 1.2em;
-            background: rgba(255,255,255,0.06);
             color: var(--text);
         }
         .game-box {
             border: 1px solid rgba(255,255,255,0.08);
-            padding: 36px;
+            padding: 28px;
             border-radius: 18px;
-            margin: 24px 0;
+            margin: 20px 0;
             background-color: var(--panel);
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
         }
+        .nav-link {
+            display: inline-block;
+            margin-bottom: 12px;
+            padding: 10px 20px;
+            background-color: #95a5a6;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: background-color 0.2s;
+        }
+        .nav-link:hover { background-color: #7f8c8d; }
+        .round-info { font-size: 20px; color: var(--muted); margin: 10px 0; }
         .number-display {
-            font-size: 84px;
+            font-size: 120px;
             font-weight: bold;
-            margin: 34px 0;
-            color: var(--text);
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+            color: #f8fafc;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            line-height:1;
         }
-        .answer-buttons {
-            margin: 34px 0;
+        .play-shell {
             display: flex;
+            gap: 22px;
+            align-items: center;
             justify-content: center;
-            gap: 44px;
         }
+        .play-shell.portrait {
+            flex-direction: column;
+            gap: 16px;
+        }
+        .play-layout {
+            display: grid;
+            grid-template-columns: 150px 230px;
+            gap: 12px;
+            align-items: center;
+            justify-items: center;
+        }
+        .play-layout.portrait {
+            grid-template-columns: minmax(140px, 180px) minmax(220px, 260px);
+            gap: 12px;
+        }
+        #axis-container { justify-self:center; }
+        #controls-col { display:flex; flex-direction:column; align-items:center; gap:18px; }
+        #messages-box { width:100%; max-width:640px; }
+        .play-shell > #messages-box { flex:0 1 640px; }
         .btn {
             padding: 22px;
             font-size: 28px;
@@ -102,58 +85,19 @@
             justify-content: center;
             transition: transform 0.2s, background-color 0.2s;
         }
-        .btn-up {
-            background-color: #cc822e;
-            color: white;
+        .btn-up { background-color: #cc822e; color: white; }
+        .btn-down { background-color: #613ce7; color: white; }
+        .btn:hover { transform: scale(1.05); }
+        .message { margin: 12px 0; padding: 18px; border-radius: 12px; background: rgba(255,255,255,0.14); font-size: 24px; }
+        .history { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+        .history-item {
+            display:flex; align-items:center; justify-content:center; gap:12px;
+            padding:8px 10px; border-radius:8px; background: rgba(12,20,35,0.9);
+            border:1px solid rgba(255,255,255,0.08); box-shadow:0 2px 6px rgba(0,0,0,0.18);
         }
-        .btn-down {
-            background-color: #613ce7;
-            color: white;
-        }
-        .btn:hover {
-            transform: scale(1.1);
-        }
-        .btn-up:hover {
-            background-color: #cc822e;
-        }
-        .btn-down:hover {
-            background-color: #613ce7;
-        }
-        .factor-btn {
-            opacity: 0.95;
-            transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
-        }
-        .factor-btn.selected {
-            box-shadow: 0 8px 18px rgba(0,0,0,0.18);
-            transform: translateY(-3px);
-            opacity: 1;
-        }
-        .score {
-            font-size: 24px;
-            font-weight: bold;
-            margin: 20px 0;
-            color: #34495e;
-        }
-        .feedback {
-            font-size: 54px;
-            margin: 24px 0;
-            animation: fadeIn 0.5s;
-        }
-        .feedback.correct {
-            color: #2ecc71;
-        }
-        .feedback.incorrect {
-            color: #e74c3c;
-        }
-        .round-info {
-            font-size: 1.2em;
-            color: #7f8c8d;
-            margin: 10px 0;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.8); }
-            to { opacity: 1; transform: scale(1); }
-        }
+        .history-number { font-weight:800; font-size:18px; color:#e2e8f0; }
+        .history-result.correct { color:#22c55e; }
+        .history-result.incorrect { color:#f87171; }
         .start-btn {
             padding: 18px 36px;
             font-size: 22px;
@@ -164,327 +108,587 @@
             cursor: pointer;
             transition: background-color 0.2s;
         }
-        .start-btn:hover {
-            background-color: #2980b9;
+        .start-btn:hover { background-color: #2980b9; }
+        .config-form {
+            display:flex; flex-direction:column; gap:14px; align-items:center;
         }
-        .active-wrap {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            align-items: center;
-            justify-content: center;
-        }
-        .axis-row {
-            display: flex;
-            align-items: stretch;
-            justify-content: center;
-            gap: 24px;
-            width: 100%;
-        }
-        .side-panel {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            align-items: stretch;
-            min-width: 260px;
-            flex: 1 1 100%;
-        }
-        .latest-msg {
-            padding: 12px;
-            border-radius: 12px;
-            background: rgba(255,255,255,0.08);
-            font-weight: 700;
-        }
-        .message-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
+        .config-row { display:flex; gap:18px; align-items:center; flex-wrap:wrap; justify-content:center; }
+        .config-block { text-align:center; }
+        .config-block input { font-size:24px; padding:12px; border-radius:10px; text-align:center; width:120px; }
+        .factor-btn.selected { box-shadow: 0 0 0 5px rgba(231, 4, 15, 0.35); filter: brightness(1.05); }
+        .footer-row { margin-top:18px; display:grid; grid-template-columns: 1fr auto 1fr; align-items:center; gap:12px; }
+        .footer-center { text-align:center; }
+        .footer-right { text-align:right; }
         @media (orientation: landscape) {
             body { max-width: 1200px; padding: 18px; }
             .game-box { padding: 32px; }
-            .active-wrap { flex-direction: row; align-items: flex-start; gap: 26px; }
-            .axis-row { justify-content: flex-start; gap: 30px; }
-            .side-panel { max-width: 520px; }
-            .nav-link { margin-bottom: 10px; }
-        }
-        /* CSS for the highly visible selected button */
-        .factor-btn.selected {
-            /* Add a transition for a smooth visual effect */
-            transition: all 0.2s ease-in-out; 
-            
-            /* 1. High-Contrast Border & Box Shadow */
-            /* Adds a glowing effect around the selected button (bright yellow/gold) */
-            box-shadow: 0 0 15px 5px rgba(255, 0, 0, 0.8) !important;
-            
-            /* Optional: Thicker border for more emphasis */
-            border-width: 4px !important; 
-            border-color: #ff0000 !important; /* Bright yellow border */
-            
-            /* 2. Scale Transformation */
-            /* Makes the button slightly larger to stand out */
-            transform: scale(1.28); 
-            
-            /* 3. Text Change (Optional but helps) */
-            /* Ensures the text is visible against the glow if needed */
-            font-weight: bold !important; 
-        }
-        .nav-link {
-            display: inline-block;
-            margin-bottom: 12px;
-            padding: 10px 20px;
-            background-color: #95a5a6;
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            transition: background-color 0.2s;
-        }
-        .nav-link:hover {
-            background-color: #7f8c8d;
         }
     </style>
 </head>
 <body>
-    <!-- Main content -->
-    <!-- TEMPLATE MARKER and SIMPLE TEST BLOCK (hidden by default unless show_debug=true) -->
-    <div id="template-marker" style="{% if not show_debug %}display:none;{% endif %}background:#d4edda;color:#155724;padding:6px;border-radius:6px;margin-bottom:10px;">TEMPLATE MARKER: game.html v4</div>
-
-    <div id="simple-test-block" style="{% if not show_debug %}display:none;{% endif %}background:#e6f7ff;color:#0c5460;padding:8px;border-radius:6px;margin-bottom:10px;"> 
-        TEST BLOCK: session.current_number='{{ session.get('current_number') }}' | messages_len='{{ messages|length }}' | history_len='{{ session.get('history')|length }}' |first_msg='{{ messages[0] if messages|length>0 else '' }}' | game_active='{{ game_active }}' | game_over='{{ game_over }}'
-    </div>
-
-    <!-- ALWAYS-VISIBLE FLEX ROW: shows session current_number centrally (debugging aid) -->
-    {% if False and game_active and not game_over %}
-    <div id="always-show-row" style="display:flex;align-items:center;justify-content:center;gap:40px;margin:12px 0;position:relative;z-index:9999;">
-        <div role="button" tabindex="0" onclick="postAnswer('up')" onkeydown="if(event.key==='Enter'||event.key===' ')postAnswer('up')" style="width:90px;height:90px;border-radius:50%;background:#cc822e;display:flex;align-items:center;justify-content:center;color:white;font-size:36px;pointer-events:auto;cursor:pointer;position:relative;z-index:9999;">▲</div>
-        <div style="font-size:84px;font-weight:bold;color:#2c3e50;">{{ session.get('current_number') }}</div>
-        <div role="button" tabindex="0" onclick="postAnswer('down')" onkeydown="if(event.key==='Enter'||event.key===' ')postAnswer('down')" style="width:90px;height:90px;border-radius:50%;background:#613ce7;display:flex;align-items:center;justify-content:center;color:white;font-size:36px;pointer-events:auto;cursor:pointer;position:relative;z-index:9999;">▼</div>
-    </div>
-    {% endif %}
-
-    <div class="game-box">
-        {% if game_active %}
-            {% set show_axis = game_config.get('show_axis', default_config.get('show_axis', True)) %}
-            <div class="active-wrap">
-                <div class="axis-row">
-                {% if show_axis %}
-                    {% set max_num = game_config.get('max_number', default_config.get('max_number', 100)) %}
-                    {% set factor = game_config.get('factor', default_config.get('factor', 10)) %}
-                    {% set current_num = session.get('current_number') %}
-                    <div style="position:relative; width:150px; height:500px;">
-                        <div style="position:absolute; left:32px; top:0; bottom:0; width:110px; border-left:3px solid #94a3b8; background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0)); border-radius:8px;">
-                            {% set last_tick = (max_num // factor) * factor %}
-                            {% for val in range(0, max_num + factor, factor) %}
-                                {% if val <= max_num %}
-                                    {% set pct = (val / max_num * 100) if max_num > 0 else 0 %}
-                                    <div style="position:absolute; left:0; width:100%; bottom:{{ pct }}%; display:flex; align-items:center; gap:8px; transform: translateY(50%);">
-                                        <div style="height:3px; width:18px; background:#94a3b8;"></div>
-                                        <div style="font-size:20px; color:#475569; font-weight:800;">{{ val }}</div>
-                                    </div>
-                                {% endif %}
-                            {% endfor %}
-                            {% if last_tick != max_num %}
-                                {% set pct = (max_num / max_num * 100) if max_num > 0 else 0 %}
-                                <div style="position:absolute; left:0; width:100%; bottom:{{ pct }}%; display:flex; align-items:center; gap:8px; transform: translateY(50%);">
-                                    <div style="height:3px; width:18px; background:#94a3b8;"></div>
-                                    <div style="font-size:20px; color:#475569; font-weight:800;">{{ max_num }}</div>
-                                </div>
-                            {% endif %}
-                            <div style="position:absolute; left:-8px; bottom:-6px; width:16px; height:16px; background:#94a3b8; border-radius:50%;"></div>
-                            <div style="position:absolute; left:-8px; top:-8px; width:16px; height:16px; background:#94a3b8; border-radius:50%; opacity:0.6;"></div>
-                        </div>
-                            {% set current_num = session.get('current_number') %}
-                            {% if current_num is not none %}
-                                {% set num_pct = (current_num / max_num * 100) if max_num > 0 else 0 %}
-                                <div style="position:absolute; left:-30px; bottom:{{ num_pct }}%; transform: translateY(50%); width:70px; height:44px; background:url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 80'><path d='M0 40 L80 40 L80 10 L120 40 L80 70 L80 40 L0 40 Z' fill='%23e11d48' stroke='%23ffffff' stroke-width='4'/></svg>&quot;) center/contain no-repeat; filter: drop-shadow(0 0 8px rgba(225,29,72,0.6));"></div>
-                            {% endif %}
-                        </div>
-                    <div style="display:flex; flex-direction:column; align-items:center; gap:18px;">
-                        <button id="interactive-up" data-answer="up" class="btn btn-up" style="height: 110px; width: 110px; font-size: 56px;">&#9650;</button>
-                        <div class="number-display" style="font-size: 150px; min-width: 180px; margin:0 0 0 10px; line-height:1; color:#f8fafc;">{{ session.get('current_number') }}</div>
-                        <button id="interactive-down" data-answer="down" class="btn btn-down" style="height: 110px; width: 110px; font-size: 56px;">&#9660;</button>
-                    </div>
-                {% else %}
-                    <div id="interactive-row" style="display: flex; align-items: center; justify-content: center; gap: 60px; margin: 20px 0 10px 0;">
-                        <button id="interactive-up" data-answer="up" class="btn btn-up" style="height: 120px; width: 120px; font-size: 60px;">
-                            &#9650;
-                        </button>
-                        <div class="number-display" style="font-size: 140px; min-width: 240px; margin: 0 20px;">{{ session.get('current_number') }}</div>
-                        <button id="interactive-down" data-answer="down" class="btn btn-down" style="height: 120px; width: 120px; font-size: 60px;">
-                            &#9660;
-                        </button>
-                    </div>
-                {% endif %}
-                </div>
-                <div class="side-panel">
-                    {% if messages|length > 0 %}
-                        <div class="latest-msg">{{ messages[-1] }}</div>
-                    {% endif %}
-                    {% if messages|length > 1 %}
-                    <div class="message-list">
-                        {% for message in messages[:-1] %}
-                            <div class="message">{{ message }}</div>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-
-        {% else %}
-            {% set prev_config = game_config %}
-            {% set default_config = default_config %}
-
-            <!-- DEBUG BLOCK: hidden by default unless show_debug is true -->
-            <div style="{% if not show_debug %}display:none;{% endif %}background:#fff3cd; color:#856404; padding:8px; border-radius:6px; margin:12px 0;">
-                DEBUG: current_number='{{ session.get('current_number') }}' | game_config='{{ prev_config }}' | default_config='{{ default_config }}'
-            </div>
-
-            <form method="POST" style="margin-top: 30px;">
-                <div style="margin-bottom: 18px; font-size:18px; display:flex; flex-direction:column; gap:14px; align-items:center;">
-                    {% if 'factor' in default_config %}
-                    <div style="width:100%; text-align:center;">
-                        <div style="font-weight:600; margin-bottom:8px;">Factor</div>
+    <div class="game-box" id="game-container" data-active="{{ 'true' if game_active else 'false' }}" data-over="{{ 'true' if game_over else 'false' }}" data-factor="{{ game_config.get('factor', default_config.get('factor', 10)) }}" data-max="{{ game_config.get('max_number', default_config.get('max_number', 100)) }}" data-show-axis="{{ 'true' if game_config.get('show_axis', default_config.get('show_axis', True)) else 'false' }}">
+        <!-- Config -->
+        <div id="config-container" style="{% if game_active %}display:none;{% endif %}">
+            <h2>{{ game_info.name if game_info else 'Rounding Game' }}</h2>
+            <p>{{ game_info.description if game_info else 'Round numbers up or down to the nearest multiple.' }}</p>
+            <form id="config-form" class="config-form">
+                <div class="config-row">
+                    <div class="config-block">
+                        <div style="font-weight:700; margin-bottom:8px;">Factor</div>
                         <div class="touch-toggle" style="display:inline-flex; gap:12px;">
-                            <input type="hidden" id="factor" name="factor" value="{{ prev_config.get('factor', default_config.get('factor', 10)) }}">
-                            
-                            <button type="button" data-value="5" class="factor-btn {% if prev_config.get('factor', default_config.get('factor', 10)) == 5 %}selected{% endif %}" style="padding:12px 20px; font-size:20px; border-radius:10px; border:2px solid #cc822e; background:#cc822e; color:#fff; min-width:90px;">5</button>
-                            
-                            <button type="button" data-value="10" class="factor-btn {% if prev_config.get('factor', default_config.get('factor', 10)) == 10 %}selected{% endif %}" style="padding:12px 20px; font-size:20px; border-radius:10px; border:2px solid #613ce7; background:#613ce7; color:#fff; min-width:90px;">10</button>
+                            <input type="hidden" id="factor" name="factor" value="{{ game_config.get('factor', default_config.get('factor', 10)) }}">
+                            <button type="button" data-value="5" class="factor-btn {% if game_config.get('factor', default_config.get('factor', 10)) == 5 %}selected{% endif %}" style="padding:12px 20px; font-size:20px; border-radius:10px; border:2px solid #cc822e; background:#cc822e; color:#fff; min-width:90px;">5</button>
+                            <button type="button" data-value="10" class="factor-btn {% if game_config.get('factor', default_config.get('factor', 10)) == 10 %}selected{% endif %}" style="padding:12px 20px; font-size:20px; border-radius:10px; border:2px solid #613ce7; background:#613ce7; color:#fff; min-width:90px;">10</button>
                         </div>
                     </div>
+                    <div class="config-block">
+                        <div style="font-weight:700; margin-bottom:8px;">Rounds</div>
+                        <div class="touch-stepper" style="display:flex; gap:10px; align-items:center;">
+                            <button type="button" class="step-minus" style="font-size:28px; padding:12px 14px; border-radius:10px;">−</button>
+                            <input type="number" id="rounds" name="rounds" min="1" value="{{ game_config.get('rounds', default_config.get('rounds', 10)) }}">
+                            <button type="button" class="step-plus" style="font-size:28px; padding:12px 14px; border-radius:10px;">+</button>
+                        </div>
+                    </div>
+                    <div class="config-block">
+                        <div style="font-weight:700; margin-bottom:8px;">Max Number</div>
+                        <div class="touch-stepper" style="display:flex; gap:10px; align-items:center;">
+                            <button type="button" class="max-minus" style="font-size:28px; padding:12px 14px; border-radius:10px;">−</button>
+                            <input type="number" id="max_number" name="max_number" min="1" value="{{ game_config.get('max_number', default_config.get('max_number', 100)) }}">
+                            <button type="button" class="max-plus" style="font-size:28px; padding:12px 14px; border-radius:10px;">+</button>
+                        </div>
+                    </div>
+                    <div class="config-block">
+                        <label style="font-weight:700; margin-bottom:10px; font-size:22px; display:block;" for="show_axis">Show Axis</label>
+                        {% set axis_val = game_config.get('show_axis', default_config.get('show_axis', True)) %}
+                        <label style="display:flex; align-items:center; justify-content:center; gap:12px; font-size:22px; cursor:pointer;">
+                            <input type="checkbox" id="show_axis" name="show_axis" value="true" {% if axis_val %}checked{% endif %} style="width:26px; height:26px; accent-color:#38bdf8;">
+                            <span>Enabled</span>
+                        </label>
+                    </div>
+                </div>
+                <button type="button" id="start-game-btn" class="start-btn" style="font-size:22px; padding:18px 36px;">Start Game</button>
+            </form>
+        </div>
+
+        <!-- Play -->
+        <div id="play-section" style="{% if not game_active %}display:none;{% endif %}">
+            <div class="round-info" id="round-info" style="font-size:26px;">{% if messages|length > 0 %}{{ messages[0] }}{% endif %}</div>
+            <div id="play-shell" class="play-shell" style="margin: 18px 0;">
+                <div id="play-wrapper" class="play-layout">
+                    <div id="axis-container" style="position:relative; width:150px; height:500px; display:none; margin:0 auto;"></div>
+                    <div id="simple-container" style="display:none; align-items: center; justify-content: center; gap: 40px; margin: 0;">
+                        <button id="interactive-up-simple" data-answer="up" class="btn btn-up" style="height: 120px; width: 120px; font-size: 60px;">&#9650;</button>
+                        <div class="number-display" id="simple-number" style="font-size: 170px; min-width: 220px; margin: 0 10px;">{{ session.get('current_number', '?') }}</div>
+                        <button id="interactive-down-simple" data-answer="down" class="btn btn-down" style="height: 120px; width: 120px; font-size: 60px;">&#9660;</button>
+                    </div>
+                    <div id="controls-col">
+                        <button id="interactive-up" data-answer="up" class="btn btn-up" style="height: 120px; width: 120px; font-size: 60px;">&#9650;</button>
+                        <div class="number-display" id="axis-number" style="font-size: 190px; min-width: 170px; margin:0; line-height:1; color:#f8fafc;">{{ session.get('current_number', '?') }}</div>
+                        <button id="interactive-down" data-answer="down" class="btn btn-down" style="height: 120px; width: 120px; font-size: 60px;">&#9660;</button>
+                    </div>
+                </div>
+                <div id="messages-box">
+                    {% for message in messages %}
+                        {% if loop.index0 > 1 %}
+                            <div class="message">{{ message }}</div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            <div id="status-panel" style="width:100%; display:flex; flex-direction:column; align-items:center; margin-top:14px;">
+                <div class="score" id="score-box" style="font-size:44px; margin:8px 0;">
+                    {% if session.games and session.games.get(game_id) %}
+                        {% set total_rounds = session.games[game_id].get('config', {}).get('rounds', session.games[game_id].get('current_round', 0)) %}
+                        Score: {{ session.games[game_id].get('score', 0) }} / {{ total_rounds }}
                     {% endif %}
-
-                    <div style="display:flex; gap:18px; align-items:center; flex-wrap: wrap; justify-content: center;">
-                        {% if 'rounds' in default_config %}
-                        <div style="text-align:center;">
-                            <div style="font-weight:700; margin-bottom:10px; font-size:22px;">Rounds</div>
-                            <div class="touch-stepper" style="display:flex; gap:10px; align-items:center;">
-                                <button type="button" class="step-minus" style="font-size:28px; padding:12px 14px; border-radius:10px;">−</button>
-                                <input type="number" id="rounds" name="rounds" min="1" value="{{ prev_config.get('rounds', default_config.get('rounds', 10)) }}" style="width:110px; font-size:24px; padding:12px; text-align:center; border-radius:10px;">
-                                <button type="button" class="step-plus" style="font-size:28px; padding:12px 14px; border-radius:10px;">+</button>
+                </div>
+                <div class="history" style="max-width:980px; width:100%; margin: 6px auto 0 auto;">
+                    <div id="history-recent">
+                        {% if session.history and game_active %}
+                            {% for entry in session.history|reverse %}
+                            <div class="history-item">
+                                <span class="history-number">{{ entry.number }}</span>
+                                <span class="history-answer">{% if entry.answer == 'up' %}&#9650; Up{% else %}&#9660; Down{% endif %}</span>
+                                <span class="history-result {{ 'correct' if entry.is_correct else 'incorrect' }}">{% if entry.is_correct %}👍{% else %}👎{% endif %}</span>
                             </div>
-                        </div>
-                        {% endif %}
-
-                        {% if 'max_number' in default_config %}
-                        <div style="text-align:center;">
-                            <div style="font-weight:700; margin-bottom:10px; font-size:22px;">Max Number</div>
-                            <div class="touch-stepper" style="display:flex; gap:10px; align-items:center;">
-                                <button type="button" class="max-minus" style="font-size:28px; padding:12px 14px; border-radius:10px;">−</button>
-                                <input type="number" id="max_number" name="max_number" min="1" value="{{ prev_config.get('max_number', default_config.get('max_number', 100)) }}" style="width:120px; font-size:24px; padding:12px; text-align:center; border-radius:10px;">
-                                <button type="button" class="max-plus" style="font-size:28px; padding:12px 14px; border-radius:10px;">+</button>
-                            </div>
-                        </div>
-                        {% endif %}
-                        {% if 'show_axis' in default_config %}
-                        <div style="text-align:center;">
-                            <label style="font-weight:700; margin-bottom:10px; font-size:22px; display:block;" for="show_axis">Show Axis</label>
-                            {% set axis_val = prev_config.get('show_axis', default_config.get('show_axis', True)) %}
-                            <label style="display:flex; align-items:center; justify-content:center; gap:12px; font-size:22px; cursor:pointer;">
-                                <input type="checkbox" id="show_axis" name="show_axis" value="true" {% if axis_val %}checked{% endif %} style="width:26px; height:26px; accent-color:#38bdf8;">
-                                <span>Enabled</span>
-                            </label>
-                            <input type="hidden" name="show_axis_present" value="1">
-                        </div>
+                            {% endfor %}
                         {% endif %}
                     </div>
                 </div>
-                <button type="submit" name="action" value="start_game" class="start-btn" style="font-size:22px; padding:18px 36px;">Start Game</button>
-            </form>
             </div>
-        {% endif %}
-        {% if session.games and session.games.get(game_id) and session.games[game_id].get('current_round', 0) > 0 %}
-            <div class="score-item">
-                <div class="number-display" style="font-size: 60px; min-width: 220px; margin: 0 20px;">Score: {{ session.games[game_id].get('score', 0) }} / {{ session.games[game_id].get('current_round', 0) }}</div>
-            </div>
-        {% endif %}
-        {% for entry in session.history|reverse %}
-            <div class="history-item">
-                <span class="history-number">{{ entry.number }}</span>
-                <span class="history-answer">
-                    {% if entry.answer == 'up' %}
-                        &#9650; Up
-                    {% else %}
-                        &#9660; Down
+        </div>
+
+        <!-- Game Over -->
+        <div id="over-section" style="{% if not game_over %}display:none;{% endif %}">
+            {% for message in messages %}
+                <div class="message {% if 'Game Over' in message %}correct{% elif 'Correct' in message %}correct{% elif 'Incorrect' in message %}incorrect{% endif %}" style="font-size: 1.5em; font-weight: bold; margin: 20px 0;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+            {% if session.games and session.games.get(game_id) %}
+                {% set game_data = session.games[game_id] %}
+                <div class="score" style="font-size: 32px; margin: 30px 0;">
+                    Final Score: {{ game_data.get('score', 0) }} / {{ game_data.get('current_round', 0) }}
+                </div>
+            {% endif %}
+            <div class="history">
+                <h3 style="font-size: 1.5em; margin-bottom: 20px;">All Answers</h3>
+                <div id="history-all">
+                    {% if session.history %}
+                        {% for entry in session.history|reverse %}
+                        <div class="history-item">
+                            <span class="history-number">{{ entry.number }}</span>
+                            <span class="history-answer">{% if entry.answer == 'up' %}&#9650; Up{% else %}&#9660; Down{% endif %}</span>
+                            <span class="history-result {{ 'correct' if entry.is_correct else 'incorrect' }}">{% if entry.is_correct %}👍{% else %}👎{% endif %}</span>
+                        </div>
+                        {% endfor %}
                     {% endif %}
-                </span>
-                <span class="history-result {{ 'correct' if entry.is_correct else 'incorrect' }}">
-                    {% if entry.is_correct %}
-                        👍
-                    {% else %}
-                        👎
-                    {% endif %}
-                </span>
+                </div>
             </div>
-        {% endfor %}
-        {% if game_active %}
-            <div class="restart_game">
-                <form method="POST" style="margin-top: 30px;">
-                    <button type="submit" name="action" value="restart" class="start-btn" style="font-size:20px; padding:14px 28px;">Restart Game</button>
-                </form>
+            <div style="margin-top: 30px;">
+                <button type="button" id="restart-ajax" class="start-btn" style="font-size:20px; padding:14px 28px;">Start New Game</button>
             </div>
-        {% endif %}
+        </div>
     </div>
-    
+
     <script>
-        // JS handler to submit answer via POST when interactive buttons are clicked
-        function postAnswer(ans) {
-            const f = document.createElement('form');
-            f.method = 'POST';
-            f.style.display = 'none';
-            const input = document.createElement('input');
-            input.name = 'answer';
-            input.value = ans;
-            f.appendChild(input);
-            document.body.appendChild(f);
-            f.submit();
-        }
-        document.addEventListener('DOMContentLoaded', function(){
-            const up = document.getElementById('interactive-up');
-            const down = document.getElementById('interactive-down');
-            if (up) up.addEventListener('click', function(){ postAnswer('up'); });
-            if (down) down.addEventListener('click', function(){ postAnswer('down'); });
-        });
-        // Touch-friendly controls: factor buttons and steppers
-        document.addEventListener('DOMContentLoaded', function(){
-            // Factor buttons
-            const factorHidden = document.getElementById('factor');
-            const factorBtns = document.querySelectorAll('.factor-btn');
-            // initialize selection from hidden input value
-            factorBtns.forEach(btn => {
-                const val = btn.getAttribute('data-value');
-                if (factorHidden && factorHidden.value === val) {
-                    btn.classList.add('selected');
-                } else {
-                    btn.classList.remove('selected');
-                }
-                btn.addEventListener('click', function(){
-                    factorBtns.forEach(b=>b.classList.remove('selected'));
-                    this.classList.add('selected');
-                    if (factorHidden) factorHidden.value = this.getAttribute('data-value');
+        document.addEventListener('DOMContentLoaded', function() {
+            const factorButtons = document.querySelectorAll('.factor-btn');
+            const factorInput = document.getElementById('factor');
+            function setFactorSelection(val) {
+                if (!factorButtons || !factorButtons.length) return;
+                factorButtons.forEach(btn => {
+                    const isSelected = btn.getAttribute('data-value') === String(val);
+                    btn.classList.toggle('selected', isSelected);
                 });
-            });
+                if (factorInput) factorInput.value = val;
+            }
+            if (factorButtons && factorInput) {
+                factorButtons.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const val = this.getAttribute('data-value');
+                        if (val) setFactorSelection(val);
+                    });
+                });
+            }
+            function setupStepper(minusSelector, plusSelector, inputSelector) {
+                const minus = document.querySelector(minusSelector);
+                const plus = document.querySelector(plusSelector);
+                const input = document.querySelector(inputSelector);
+                if (minus && plus && input) {
+                    minus.addEventListener('click', () => {
+                        const val = Math.max(parseInt(input.value || '0') - 1, parseInt(input.min || '1'));
+                        input.value = val;
+                    });
+                    plus.addEventListener('click', () => {
+                        const val = parseInt(input.value || '0') + 1;
+                        input.value = val;
+                    });
+                }
+            }
+            setupStepper('.step-minus', '.step-plus', '#rounds');
+            setupStepper('.max-minus', '.max-plus', '#max_number');
 
-            // Rounds stepper
-            const roundsInput = document.getElementById('rounds');
-            const minus = document.querySelector('.step-minus');
-            const plus = document.querySelector('.step-plus');
-            if (minus) minus.addEventListener('click', ()=>{ if(roundsInput && Number(roundsInput.value) > 1) roundsInput.value = Number(roundsInput.value)-1; });
-            if (plus) plus.addEventListener('click', ()=>{ if(roundsInput) roundsInput.value = Number(roundsInput.value)+1; });
+            const configContainer = document.getElementById('config-container');
+            const playSection = document.getElementById('play-section');
+            const overSection = document.getElementById('over-section');
+            const gameContainer = document.getElementById('game-container');
+            const startBtn = document.getElementById('start-game-btn');
+            const messagesBox = document.getElementById('messages-box');
+            const roundInfo = document.getElementById('round-info');
+            const numberAxis = document.getElementById('axis-number');
+            const numberSimple = document.getElementById('simple-number');
+            const scoreBox = document.getElementById('score-box');
+            const historyRecent = document.getElementById('history-recent');
+            const historyAll = document.getElementById('history-all');
+            const restartBtn = document.getElementById('restart-ajax');
+            const footerRestart = document.getElementById('footer-restart');
+            const axisContainer = document.getElementById('axis-container');
+            const simpleContainer = document.getElementById('simple-container');
+            const btnUp = document.getElementById('interactive-up');
+            const btnDown = document.getElementById('interactive-down');
+            const btnUpSimple = document.getElementById('interactive-up-simple');
+            const btnDownSimple = document.getElementById('interactive-down-simple');
+            const answerButtons = [btnUp, btnDown, btnUpSimple, btnDownSimple].filter(Boolean);
+            const playWrapper = document.getElementById('play-wrapper');
+            const playShell = document.getElementById('play-shell');
 
-            // Max number stepper
-            const maxInput = document.getElementById('max_number');
-            const maxMinus = document.querySelector('.max-minus');
-            const maxPlus = document.querySelector('.max-plus');
-            if (maxMinus) maxMinus.addEventListener('click', ()=>{ if(maxInput && Number(maxInput.value) > 1) maxInput.value = Number(maxInput.value)-1; });
-            if (maxPlus) maxPlus.addEventListener('click', ()=>{ if(maxInput) maxInput.value = Number(maxInput.value)+1; });
+            function syncFooterRestart() {
+                if (!footerRestart || !gameContainer) return;
+                const active = gameContainer.dataset.active === 'true';
+                const over = gameContainer.dataset.over === 'true';
+                footerRestart.style.visibility = (active || over) ? 'visible' : 'hidden';
+            }
+
+            function applyOrientationLayout() {
+                if (!playWrapper) return;
+                const portrait = window.innerHeight > window.innerWidth;
+                playWrapper.classList.toggle('portrait', portrait);
+                if (playShell) playShell.classList.toggle('portrait', portrait);
+                if (portrait) {
+                    playWrapper.style.maxWidth = '540px';
+                    if (playShell) playShell.style.margin = '0 auto';
+                } else {
+                    playWrapper.style.maxWidth = '100%';
+                    if (playShell) playShell.style.margin = '18px 0';
+                }
+                if (messagesBox) {
+                    messagesBox.style.maxWidth = '640px';
+                    messagesBox.style.alignSelf = portrait ? 'center' : 'stretch';
+                }
+                if (axisContainer) {
+                    axisContainer.style.height = portrait ? '420px' : '520px';
+                }
+            }
+
+            function renderHistory(list, target) {
+                if (!target) return;
+                target.innerHTML = '';
+                (list || []).forEach(entry => {
+                    const div = document.createElement('div');
+                    div.className = 'history-item';
+                    div.innerHTML = `
+                        <span class="history-number">${entry.number}</span>
+                        <span class="history-answer">${entry.answer === 'up' ? '&#9650; Up' : '&#9660; Down'}</span>
+                        <span class="history-result ${entry.is_correct ? 'correct' : 'incorrect'}">${entry.is_correct ? 'Correct 👍' : 'Incorrect 👎'}</span>
+                    `;
+                    target.appendChild(div);
+                });
+            }
+
+            async function submitAjax(action, payload = {}) {
+                const body = Object.assign({ action }, payload);
+                const res = await fetch(location.pathname, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(body)
+                });
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(`Network error ${res.status}: ${text}`);
+                }
+                return res.json();
+            }
+
+            function renderAxis(maxNum, factor, currentNum, showAxis) {
+                if (!axisContainer || !simpleContainer) return;
+                axisContainer.innerHTML = '';
+                if (showAxis) {
+                    axisContainer.style.display = 'block';
+                    simpleContainer.style.display = 'none';
+                    const wrapper = document.createElement('div');
+                    wrapper.style.position = 'absolute';
+                    wrapper.style.left = '32px';
+                    wrapper.style.top = '0';
+                    wrapper.style.bottom = '0';
+                    wrapper.style.width = '110px';
+                    wrapper.style.borderLeft = '3px solid #94a3b8';
+                    wrapper.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0))';
+                    wrapper.style.borderRadius = '8px';
+                    axisContainer.appendChild(wrapper);
+                    const last_tick = Math.floor(maxNum / factor) * factor;
+                    for (let val = 0; val <= maxNum; val += factor) {
+                        const pct = maxNum > 0 ? (val / maxNum) * 100 : 0;
+                        const tick = document.createElement('div');
+                        tick.style.position = 'absolute';
+                        tick.style.left = '0';
+                        tick.style.width = '100%';
+                        tick.style.bottom = pct + '%';
+                        tick.style.display = 'flex';
+                        tick.style.alignItems = 'center';
+                        tick.style.gap = '8px';
+                        tick.style.transform = 'translateY(50%)';
+                        tick.innerHTML = `<div style="height:3px; width:18px; background:#94a3b8;"></div><div style="font-size:20px; color:#475569; font-weight:800;">${val}</div>`;
+                        wrapper.appendChild(tick);
+                    }
+                    if (last_tick !== maxNum) {
+                        const pct = maxNum > 0 ? 100 : 0;
+                        const tick = document.createElement('div');
+                        tick.style.position = 'absolute';
+                        tick.style.left = '0';
+                        tick.style.width = '100%';
+                        tick.style.bottom = pct + '%';
+                        tick.style.display = 'flex';
+                        tick.style.alignItems = 'center';
+                        tick.style.gap = '8px';
+                        tick.style.transform = 'translateY(50%)';
+                        tick.innerHTML = `<div style="height:3px; width:18px; background:#94a3b8;"></div><div style="font-size:20px; color:#475569; font-weight:800;">${maxNum}</div>`;
+                        wrapper.appendChild(tick);
+                    }
+                    const bottomDot = document.createElement('div');
+                    bottomDot.style.position = 'absolute';
+                    bottomDot.style.left = '-8px';
+                    bottomDot.style.bottom = '-6px';
+                    bottomDot.style.width = '16px';
+                    bottomDot.style.height = '16px';
+                    bottomDot.style.background = '#94a3b8';
+                    bottomDot.style.borderRadius = '50%';
+                    wrapper.appendChild(bottomDot);
+                    const topDot = document.createElement('div');
+                    topDot.style.position = 'absolute';
+                    topDot.style.left = '-8px';
+                    topDot.style.top = '-8px';
+                    topDot.style.width = '16px';
+                    topDot.style.height = '16px';
+                    topDot.style.background = '#94a3b8';
+                    topDot.style.borderRadius = '50%';
+                    topDot.style.opacity = '0.6';
+                    wrapper.appendChild(topDot);
+                    if (currentNum !== null && currentNum !== undefined && maxNum > 0) {
+                        const pct = (currentNum / maxNum) * 100;
+                        const arrow = document.createElement('div');
+                        arrow.style.position = 'absolute';
+                        arrow.style.left = '-86px';
+                        arrow.style.bottom = pct + '%';
+                        arrow.style.transform = 'translateY(50%)';
+                        arrow.style.width = '84px';
+                        arrow.style.height = '52px';
+                        arrow.style.background = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 80'><path d='M0 40 L80 40 L80 10 L120 40 L80 70 L80 40 L0 40 Z' fill='%23e11d48' stroke='%23ffffff' stroke-width='6'/></svg>\") center/contain no-repeat";
+                        arrow.style.filter = 'drop-shadow(0 0 10px rgba(225,29,72,0.55))';
+                        wrapper.appendChild(arrow);
+                    }
+                } else {
+                    axisContainer.style.display = 'none';
+                    simpleContainer.style.display = 'flex';
+                }
+            }
+
+            function updateState(data) {
+                const msgs = data.messages || [];
+                if (roundInfo) {
+                    if (msgs.length) {
+                        roundInfo.textContent = msgs[0];
+                    } else if (data.current_round !== undefined && data.total_rounds !== undefined) {
+                        roundInfo.textContent = `Round ${data.current_round}/${data.total_rounds}`;
+                    }
+                }
+                if (numberAxis) numberAxis.textContent = data.number ?? '?';
+                if (numberSimple) numberSimple.textContent = data.number ?? '?';
+                if (scoreBox && data.score !== undefined) {
+                    const total = data.total_rounds !== undefined ? data.total_rounds : data.current_round;
+                    scoreBox.textContent = `Score: ${data.score} / ${total}`;
+                }
+                if (messagesBox) {
+                    if (data.game_over) {
+                        messagesBox.innerHTML = '';
+                        messagesBox.style.display = 'none';
+                    } else {
+                        messagesBox.style.display = 'block';
+                        messagesBox.innerHTML = '';
+                        msgs.slice(1).forEach((m) => {
+                            const div = document.createElement('div');
+                            div.className = 'message';
+                            div.textContent = m;
+                            messagesBox.appendChild(div);
+                        });
+                    }
+                }
+                renderHistory(data.history || [], historyRecent);
+                renderHistory(data.history || [], historyAll);
+                const showAxisVal = data.show_axis !== undefined ? data.show_axis : (gameContainer?.dataset.showAxis === 'true');
+                if (gameContainer) {
+                    if (data.factor !== undefined) gameContainer.dataset.factor = data.factor;
+                    if (data.max_number !== undefined) gameContainer.dataset.max = data.max_number;
+                    gameContainer.dataset.showAxis = showAxisVal ? 'true' : 'false';
+                    if (data.game_active !== undefined) gameContainer.dataset.active = data.game_active ? 'true' : 'false';
+                    if (data.game_over !== undefined) gameContainer.dataset.over = data.game_over ? 'true' : 'false';
+                }
+                if (data.factor !== undefined) setFactorSelection(data.factor);
+                renderAxis(Number(gameContainer?.dataset.max || 100), Number(gameContainer?.dataset.factor || 10), data.number, showAxisVal);
+                if (data.config) {
+                    if (document.getElementById('rounds') && data.config.rounds !== undefined) document.getElementById('rounds').value = data.config.rounds;
+                    if (document.getElementById('max_number') && data.config.max_number !== undefined) document.getElementById('max_number').value = data.config.max_number;
+                    if (typeof data.config.show_axis === 'boolean') {
+                        const cb = document.getElementById('show_axis');
+                        if (cb) cb.checked = !!data.config.show_axis;
+                    }
+                }
+                applyOrientationLayout();
+                if (configContainer && playSection && overSection && gameContainer) {
+                    const isActive = gameContainer.dataset.active === 'true';
+                    const isOver = gameContainer.dataset.over === 'true';
+                    if (isActive) {
+                        configContainer.style.display = 'none';
+                        playSection.style.display = 'block';
+                        overSection.style.display = 'none';
+                    } else if (isOver) {
+                        configContainer.style.display = 'none';
+                        playSection.style.display = 'none';
+                        overSection.style.display = 'block';
+                    } else {
+                        configContainer.style.display = 'block';
+                        playSection.style.display = 'none';
+                        overSection.style.display = 'none';
+                    }
+                }
+                syncFooterRestart();
+            }
+
+            async function handleAnswer(ans) {
+                try {
+                    const data = await submitAjax('answer', { answer: ans });
+                    updateState(data);
+                    if (data.game_over && playSection && overSection) {
+                        playSection.style.display = 'none';
+                        overSection.style.display = 'block';
+                        if (restartBtn) restartBtn.style.display = 'block';
+                        if (gameContainer) {
+                            gameContainer.dataset.active = 'false';
+                            gameContainer.dataset.over = 'true';
+                        }
+                        syncFooterRestart();
+                    } else {
+                        if (playSection) playSection.style.display = 'block';
+                        if (overSection) overSection.style.display = 'none';
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Could not submit. Please try again.');
+                }
+            }
+
+            if (answerButtons.length) {
+                answerButtons.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const ans = btn.getAttribute('data-answer');
+                        if (ans) handleAnswer(ans);
+                    });
+                });
+            }
+
+            if (startBtn) {
+                startBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    startBtn.disabled = true;
+                    const rounds = document.getElementById('rounds')?.value;
+                    const maxNum = document.getElementById('max_number')?.value;
+                    const factorVal = factorInput?.value;
+                    const showAxisVal = document.getElementById('show_axis')?.checked;
+                    try {
+                        const data = await submitAjax('start_game', { rounds, max_number: maxNum, factor: factorVal, show_axis: showAxisVal });
+                        updateState(data);
+                        if (configContainer) configContainer.style.display = 'none';
+                        if (playSection) playSection.style.display = 'block';
+                        if (overSection) overSection.style.display = 'none';
+                        if (restartBtn) restartBtn.style.display = 'none';
+                    } catch (err) {
+                        console.error(err);
+                        alert('Could not start game. Please try again.\n' + err.message);
+                    } finally {
+                        startBtn.disabled = false;
+                    }
+                });
+            }
+
+            if (restartBtn) {
+                restartBtn.style.display = (gameContainer?.dataset.active === 'true' || gameContainer?.dataset.over === 'true') ? 'block' : 'none';
+                restartBtn.addEventListener('click', async () => {
+                    try {
+                        const data = await submitAjax('restart', {});
+                        updateState(data);
+                        if (playSection) playSection.style.display = 'block';
+                        if (overSection) overSection.style.display = 'none';
+                        if (configContainer) configContainer.style.display = 'none';
+                        if (restartBtn) restartBtn.style.display = 'none';
+                    } catch (err) {
+                        console.error(err);
+                        alert('Could not restart. Please try again.');
+                    }
+                });
+            }
+
+            async function resetToConfig() {
+                try {
+                    const data = await submitAjax('reset_to_config', {});
+                    if (data.config) {
+                        if (document.getElementById('rounds') && data.config.rounds !== undefined) document.getElementById('rounds').value = data.config.rounds;
+                        if (document.getElementById('max_number') && data.config.max_number !== undefined) document.getElementById('max_number').value = data.config.max_number;
+                        if (typeof data.config.show_axis === 'boolean') {
+                            const cb = document.getElementById('show_axis');
+                            if (cb) cb.checked = !!data.config.show_axis;
+                        }
+                        if (data.config.factor !== undefined) setFactorSelection(data.config.factor);
+                    }
+                    if (gameContainer) {
+                        gameContainer.dataset.active = 'false';
+                        gameContainer.dataset.over = 'false';
+                    }
+                    if (configContainer) configContainer.style.display = 'block';
+                    if (playSection) playSection.style.display = 'none';
+                    if (overSection) overSection.style.display = 'none';
+                    if (messagesBox) messagesBox.innerHTML = '';
+                    if (roundInfo) roundInfo.textContent = '';
+                    syncFooterRestart();
+                } catch (err) {
+                    console.error(err);
+                    alert('Could not restart. Please try again.');
+                }
+            }
+
+            const fsBtn = document.getElementById('fullscreen-btn');
+            const fsText = () => {
+                if (fsBtn) {
+                    const isFs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+                    fsBtn.textContent = isFs ? 'Exit full screen' : 'Full screen';
+                }
+            };
+            if (fsBtn) {
+                fsBtn.addEventListener('click', () => {
+                    const el = document.documentElement;
+                    const isFs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+                    try {
+                        if (isFs) {
+                            const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+                            if (exit) exit.call(document);
+                        } else {
+                            const request = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+                            if (request) {
+                                request.call(el);
+                            } else {
+                                alert('For full screen on iPhone/iPad, use “Add to Home Screen” from Safari.');
+                            }
+                        }
+                    } catch (err) {
+                        console.error(err);
+                    }
+                });
+                document.addEventListener('fullscreenchange', fsText);
+                document.addEventListener('webkitfullscreenchange', fsText);
+                fsText();
+            }
+            if (footerRestart) {
+                footerRestart.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    resetToConfig();
+                });
+            }
+
+            const initMax = Number(gameContainer?.dataset.max || 100);
+            const initFactor = Number(gameContainer?.dataset.factor || 10);
+            const initShowAxis = (gameContainer && gameContainer.dataset.showAxis === 'true');
+            setFactorSelection(initFactor);
+            renderAxis(initMax, initFactor, {{ session.get('current_number')|tojson }}, initShowAxis);
+            syncFooterRestart();
+            applyOrientationLayout();
+            window.addEventListener('resize', applyOrientationLayout);
         });
     </script>
-    <div style="margin-top:18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-        <a href="{{ url_for('index') }}" class="nav-link">← Back to Games</a>
-        <span></span>
-        <span></span>
-    </div>
+
+        <div class="footer-row">
+            <div style="text-align:left;">
+                <a href="{{ url_for('index') }}" class="nav-link" style="margin-left:0;">← Back to Games</a>
+            </div>
+            <div class="footer-center">
+                <button id="fullscreen-btn" style="padding:10px 16px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.08); color:#f8fafc; cursor:pointer;">Full screen</button>
+            </div>
+            <div class="footer-right">
+                <button id="footer-restart" class="start-btn" style="padding:10px 20px; font-size:18px; visibility:hidden;">Restart</button>
+            </div>
+        </div>
     <div style="margin-top:12px; text-align:center; color: rgba(255,255,255,0.5); font-size: 12px;">
         © Cigav Productions LLC
     </div>

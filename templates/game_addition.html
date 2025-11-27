@@ -175,12 +175,34 @@
             font-weight: 600;
             min-width: 120px;
         }
-        .config-item input {
-            padding: 8px;
-            font-size: 18px;
-            width: 100px;
-            text-align: center;
+        .config-stepper {
+            display:flex;
+            align-items:center;
+            gap:10px;
         }
+        .config-stepper input {
+            padding: 10px;
+            font-size: 20px;
+            width: 110px;
+            text-align: center;
+            border-radius:10px;
+            border:2px solid rgba(255,255,255,0.2);
+            background: rgba(15,25,40,0.6);
+            color: var(--text);
+        }
+        .config-stepper button {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            border: none;
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1d4ed8, #2563eb);
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+        }
+        .config-stepper button:active { transform: scale(0.97); }
         .history {
             display: flex;
             flex-direction: column-reverse;
@@ -256,11 +278,19 @@
             <form method="POST" class="config-form" id="config-form">
                 <div class="config-item">
                     <label for="rounds">Number of Rounds:</label>
-                    <input type="number" id="rounds" name="rounds" min="1" value="{{ game_config.get('rounds', default_config.get('rounds', 10)) }}" required>
+                    <div class="config-stepper">
+                        <button type="button" id="rounds-minus">−</button>
+                        <input type="number" id="rounds" name="rounds" min="1" value="{{ game_config.get('rounds', default_config.get('rounds', 10)) }}" required>
+                        <button type="button" id="rounds-plus">+</button>
+                    </div>
                 </div>
                 <div class="config-item">
                     <label for="max_number">Max Number:</label>
-                    <input type="number" id="max_number" name="max_number" min="1" value="{{ game_config.get('max_number', default_config.get('max_number', 50)) }}" required>
+                    <div class="config-stepper">
+                        <button type="button" id="max-minus">−</button>
+                        <input type="number" id="max_number" name="max_number" min="1" value="{{ game_config.get('max_number', default_config.get('max_number', 50)) }}" required>
+                        <button type="button" id="max-plus">+</button>
+                    </div>
                 </div>
                 <button type="button" id="start-game-btn" class="start-btn" style="font-size:20px; padding:14px 28px;">Start Game</button>
             </form>
@@ -381,6 +411,23 @@
             if (answerInput) {
                 answerInput.focus();
             }
+            function setupStepper(minusSelector, plusSelector, inputSelector) {
+                const minus = document.querySelector(minusSelector);
+                const plus = document.querySelector(plusSelector);
+                const input = document.querySelector(inputSelector);
+                if (!minus || !plus || !input) return;
+                minus.addEventListener('click', () => {
+                    const min = parseInt(input.min || '1', 10);
+                    const current = parseInt(input.value || min, 10);
+                    input.value = Math.max(current - 1, min);
+                });
+                plus.addEventListener('click', () => {
+                    const current = parseInt(input.value || '0', 10);
+                    input.value = current + 1;
+                });
+            }
+            setupStepper('#rounds-minus', '#rounds-plus', '#rounds');
+            setupStepper('#max-minus', '#max-plus', '#max_number');
             const keys = document.querySelectorAll('.key-btn');
             if (keys.length && answerInput) {
                 keys.forEach(btn => {
