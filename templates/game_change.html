@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<!-- © Cigav Productions LLC -->
+<html>
+<head>
+    <title>{{ game_info.name if game_info else 'Change Game' }}</title>
+    <style>
+        :root {
+            --bg: #0b1220;
+            --panel: #0e213d;
+            --accent: #facc15;
+            --text: #f8fafc;
+            --muted: #cbd5e1;
+            --error: #ef4444;
+        }
+        body {
+            margin: 0;
+            padding: 14px;
+            font-family: "Trebuchet MS", Arial, sans-serif;
+            background: radial-gradient(circle at 15% 20%, #1f2f4f, #0b1220 60%);
+            color: var(--text);
+        }
+        a { color: var(--text); text-decoration: none; }
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.08);
+            transition: all 0.2s;
+        }
+        .nav-link:hover { background: rgba(255,255,255,0.14); }
+        .shell { max-width: 1100px; margin: 0 auto; }
+        .panel {
+            background: var(--panel);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 20px;
+            padding: 18px;
+            margin-top: 12px;
+            box-shadow: 0 14px 30px rgba(0,0,0,0.35);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .title { font-size: 34px; margin: 0; letter-spacing: 0.4px; }
+        .score-chip, .round-chip {
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.08);
+            font-weight: 700;
+        }
+        .money-layout { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
+        .info-col { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: none; min-width:0; }
+        .item-info { display: grid; grid-template-columns: minmax(0, 40%) minmax(0, 1fr); gap: 12px; align-items: start; width:100%; }
+        .stacks-col { width: 100%; min-width:0; }
+        .stacks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+        .item-card img {
+            width: 100%;
+            max-height: 240px;
+            object-fit: contain;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: #0f172a;
+        }
+        .pill {
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.09);
+            border: 1px solid rgba(255,255,255,0.12);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 800;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+        }
+        .pill .label { color: var(--muted); font-weight: 600; }
+        .actions { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+        .btn {
+            padding: 14px 18px;
+            border: none;
+            border-radius: 14px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+            font-size: 16px;
+        }
+        .btn:hover { transform: translateY(-2px); }
+        .btn-primary { background: var(--accent); color: #0f172a; }
+        .btn-ghost { background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid rgba(255,255,255,0.12); }
+        .btn-danger { background: var(--error); color: #0f172a; }
+        .messages { margin-top: 14px; display: grid; gap: 8px; }
+        .msg { padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); }
+        .msg.correct { border-color: rgba(34,197,94,0.5); }
+        .msg.incorrect { border-color: rgba(239,68,68,0.6); }
+        .change-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; }
+        .change-card {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.16);
+            border-radius: 16px;
+            padding: 14px;
+            display:flex;
+            flex-direction:column;
+            gap:10px;
+            min-height:140px;
+        }
+        .denom-header { display:flex; align-items:center; gap:12px; }
+        .denom-icon {
+            width:56px;
+            height:56px;
+            border-radius:50%;
+            border:1px solid rgba(255,255,255,0.3);
+            background-size:cover;
+            background-position:center;
+        }
+        .denom-icon.bill-10 { background-image:url('/static/bills/10.jpg'); border-radius:12px; height:32px; width:56px; }
+        .denom-icon.bill-5 { background-image:url('/static/bills/5.jpg'); border-radius:12px; height:32px; width:56px; }
+        .denom-icon.bill-1 { background-image:url('/static/bills/1.jpg'); border-radius:12px; height:32px; width:56px; }
+        .denom-icon.coin-25 { background-image:url('/static/coins/quarter.png'); }
+        .denom-icon.coin-10 { background-image:url('/static/coins/dime.png'); }
+        .denom-icon.coin-5 { background-image:url('/static/coins/nickel.png'); }
+        .denom-icon.coin-1 { background-image:url('/static/coins/penny.png'); }
+        .denom-name { font-weight:700; }
+        .denom-controls { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; }
+        .denom-controls button {
+            width:44px;
+            height:44px;
+            border-radius:10px;
+            border:1px solid rgba(255,255,255,0.25);
+            background:rgba(255,255,255,0.08);
+            color:var(--text);
+            font-size:24px;
+            font-weight:800;
+            cursor:pointer;
+        }
+        .denom-count { font-size:24px; font-weight:900; min-width:48px; text-align:center; }
+        .denom-available { font-size:13px; color:var(--muted); }
+        .info-stats { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; }
+        .history { margin-top: 18px; }
+        .history h3 { margin: 0 0 8px 0; }
+        .history-list { display: grid; gap: 8px; }
+        .history-item {
+            padding: 12px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            display: grid;
+            grid-template-columns: 1.2fr 1fr 1fr;
+            gap: 10px;
+            align-items: center;
+        }
+        .footer-row { margin-top:18px; display:grid; grid-template-columns: 1fr auto 1fr; align-items:center; gap:12px; }
+        .footer-row .footer-center { justify-self:center; }
+        .footer-row .footer-right { justify-self:end; }
+        @media (orientation: landscape) {
+            .money-layout { grid-template-columns: minmax(0, 52%) minmax(420px, 48%); column-gap: 18px; row-gap: 12px; align-items: start; }
+            .info-col { width: 100%; max-width: none; }
+            .stacks-col { width: 100%; }
+            .stacks-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+        }
+        @media (max-width: 1450px) {
+            .money-layout { grid-template-columns: 1fr; }
+            .info-col { max-width: none; }
+        }
+        @media (max-width: 900px) {
+            .history-item { grid-template-columns: 1fr; }
+            .item-card img { max-height: 200px; }
+            .panel { padding: 14px; }
+            body { padding: 10px; }
+            .item-info { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    {% set game_data = session.games[game_id] if session.games and session.games.get(game_id) else {} %}
+    {% set show_tax_val = game_config.get('show_tax', default_config.get('show_tax', True)) %}
+    {% set req_min_val = game_config.get('require_minimal_bills', default_config.get('require_minimal_bills', False)) %}
+    <div class="shell" id="change-app" data-active="{{ 'true' if game_active else 'false' }}" data-over="{{ 'true' if game_over else 'false' }}">
+        <div class="panel" id="config-panel" style="{% if game_active or game_over %}display:none;{% endif %}">
+            <div class="header" style="margin-bottom:12px;">
+                <div>
+                    <p class="title">Change Game</p>
+                    <div style="color: var(--muted)">Figure out how much change should be returned.</div>
+                </div>
+            </div>
+            <form id="config-form">
+                <div class="config-grid" style="align-items:flex-start; gap:18px; font-size:18px;">
+                    <div style="display:flex; flex-direction:column; gap:10px; padding:6px 0;">
+                        <label style="display:flex; align-items:center; gap:12px; font-size:20px; font-weight:700; cursor:pointer;" for="show_tax">
+                            <input type="checkbox" id="show_tax" name="show_tax" value="true" {% if show_tax_val %}checked{% endif %}>
+                            <span>Display sales tax</span>
+                        </label>
+                        <div id="tax_rate_wrap" style="margin-top:8px; {% if not show_tax_val %}display:none;{% endif %}">
+                            <label for="tax_rate" style="margin-bottom:4px; font-size:18px;">Sales tax rate</label>
+                            <input type="number" step="0.00001" min="0" id="tax_rate" name="tax_rate" value="{{ game_config.get('tax_rate', default_config.get('tax_rate', 0.08)) }}" style="font-size:18px; padding:12px; border-radius:10px;">
+                        </div>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:10px; padding:6px 0;">
+                        <label for="rounds" style="font-size:20px; font-weight:700;">Rounds</label>
+                        <input type="number" id="rounds" name="rounds" min="1" value="{{ game_config.get('rounds', default_config.get('rounds', 8)) }}" required style="font-size:18px; padding:12px; border-radius:10px;">
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:10px; padding:6px 0;">
+                        <label for="max_price" style="font-size:20px; font-weight:700;">Max item price</label>
+                        <input type="number" id="max_price" name="max_price" min="1" value="{{ game_config.get('max_price', default_config.get('max_price', 50)) }}" required style="font-size:18px; padding:12px; border-radius:10px;">
+                    </div>
+                    <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center; padding:6px 0;">
+                        <label style="display:flex; align-items:center; gap:10px; font-size:20px; font-weight:700; cursor:pointer;" for="require_minimal_bills">
+                            <input type="checkbox" id="require_minimal_bills" name="require_minimal_bills" value="true" {% if req_min_val %}checked{% endif %}>
+                            <span>Require fewest coins</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="actions" style="margin-top:18px;">
+                    <button type="button" id="start-game-btn" class="btn btn-primary" style="font-size:20px; padding:14px 22px;">Start game</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="panel" id="play-panel" style="{% if not game_active %}display:none;{% endif %}">
+            <div class="header">
+                <div>
+                    <p class="title">Change Game</p>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <div class="round-chip" id="round-chip">Round {{ game_data.get('current_round', 0) + 1 }} / {{ game_data.get('config', {}).get('rounds', default_config.get('rounds', 8)) }}</div>
+                    <div class="score-chip" id="score-chip">Score {{ game_data.get('score', 0) }}</div>
+                </div>
+            </div>
+            <div class="money-layout" id="play-shell">
+                <div class="info-col">
+                    <div class="item-info">
+                        <div class="item-card">
+                            <img id="item-image" src="{{ game_data.get('item_image') }}" alt="Item image">
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:10px;">
+                            <div>
+                                <div id="item-price" style="font-size: 40px; font-weight: 900;">${{ game_data.get('item_price', 0) }}</div>
+                                {% if game_data.get('show_tax', True) %}
+                                    {% set tax_rate_val = game_data.get('tax_rate', default_config.get('tax_rate', 0.08)) %}
+                                    {% set tax_amount_val = game_data.get('tax_amount', 0) %}
+                                    <div id="tax-info" style="font-size: 16px; color: var(--muted); margin-top:4px;">Tax {{ '%.2f' % (tax_rate_val * 100) }}%: ${{ '%.2f' % tax_amount_val }}</div>
+                                {% else %}
+                                    <div id="tax-info" style="display:none;"></div>
+                                {% endif %}
+                                <div id="require-hint" style="font-size: 14px; color: var(--muted); margin-top:4px; {% if not req_min_val %}display:none;{% endif %}">
+                                    Use the fewest bills/coins possible to match the change owed.
+                                </div>
+                            </div>
+                            <div class="info-stats">
+                                <div class="pill total-due" style="grid-column: span 2; background: linear-gradient(135deg, #eab308, #f59e0b); color: #0f172a; padding:20px 24px; width:100%; max-width: 100%; min-width:0;">
+                                    <span class="label" style="color:#0f172a; font-size:24px;">Total Due</span>
+                                    <span id="total-due" style="font-weight:900; font-size:40px;">${{ '%.2f' % game_data.get('total_due', 0) }}</span>
+                                </div>
+                                <div class="pill" style="flex-direction:column; align-items:flex-start; gap:8px;">
+                                    <div style="font-weight:700; font-size:24px;">Customer Paid <span id="paid-total" style="font-size:34px;">${{ '%.2f' % game_data.get('pay_total', 0) }}</span></div>
+                                    <div id="payment-stack" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+                                </div>
+                                <div class="pill" style="width: auto; max-width: 100%; min-width:0; flex-wrap:wrap;">
+                                    <span class="label">Change Due</span>
+                                    <span id="change-due">${{ '%.2f' % game_data.get('change_due', 0) }}</span>
+                                </div>
+                                <div class="pill" style="flex-direction:column; align-items:flex-start;">
+                                    <span class="label">Payment details</span>
+                                    <div id="payment-breakdown" style="font-weight:700; margin-top:6px;"></div>
+                                </div>
+                            </div>
+                            <div class="totals" style="width:100%; display:flex; flex-direction:column; gap:10px;">
+                                <div class="pill">
+                                    <span class="label">You selected</span>
+                                    <span id="selected-total">$0</span>
+                                </div>
+                                <div class="pill">
+                                    <span class="label">Difference</span>
+                                    <span id="delta" class="delta bad">$0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="actions" style="margin-top:12px;">
+                        <button id="submit-btn" class="btn btn-primary" style="font-size:18px;">Submit change</button>
+                        <button type="button" id="clear-btn" class="btn btn-ghost" style="font-size:16px;">Clear</button>
+                        <button type="button" id="skip-btn" class="btn btn-ghost" style="font-size:16px;">Skip item</button>
+                        <button type="button" id="restart-btn" class="btn btn-danger" style="font-size:16px;">Restart</button>
+                    </div>
+                    <div class="messages" id="messages-box" style="margin-top:12px;">
+                        {% for m in messages %}
+                            <div class="msg {% if 'Correct' in m %}correct{% elif 'Incorrect' in m %}incorrect{% endif %}">{{ m }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="stacks-col">
+                    <form id="change-form">
+                        <input type="hidden" name="answer" id="answer-field" value="1000:0,500:0,100:0,25:0,10:0,5:0,1:0">
+                        <input type="hidden" id="debug_payload" name="debug_payload" value="">
+                        {% for denom in [1000,500,100,25,10,5,1] %}
+                        <input type="hidden" id="count-{{ denom }}" name="count_{{ denom }}" value="0">
+                        {% endfor %}
+                        <div class="change-grid">
+                            {% set change_labels = {1000:'$10 bills',500:'$5 bills',100:'$1 bills',25:'Quarters (0.25)',10:'Dimes (0.10)',5:'Nickels (0.05)',1:'Pennies (0.01)'} %}
+                            {% set icon_classes = {1000:'bill-10',500:'bill-5',100:'bill-1',25:'coin-25',10:'coin-10',5:'coin-5',1:'coin-1'} %}
+                            {% for denom in [1000,500,100,25,10,5,1] %}
+                            <div class="change-card" data-denom="{{ denom }}">
+                                <div class="denom-header">
+                                    <div class="denom-icon {{ icon_classes[denom] }}"></div>
+                                    <div>
+                                        <div class="denom-name">{{ change_labels[denom] }}</div>
+                                        <div class="denom-available">Available: <span data-limit="{{ denom }}">{{ game_data.get('available_counts', {}).get(denom, game_data.get('available_counts', {}).get(denom|string, 999)) }}</span></div>
+                                    </div>
+                                </div>
+                                <div class="denom-controls">
+                                    <button type="button" data-action="dec">−</button>
+                                    <div class="denom-count" data-count="{{ denom }}">0</div>
+                                    <button type="button" data-action="inc">+</button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="history" style="margin-top:18px;">
+                <h3>Recent attempts</h3>
+                <div class="history-list" id="history-list">
+                    {% if session.history %}
+                        {% for entry in session.history[-6:]|reverse %}
+                        <div class="history-item">
+                            <div>
+                                <strong>{{ entry.item_name }}</strong>
+                                <div><small>Price ${{ entry.item_price }}{% if entry.show_tax %} + tax ${{ entry.tax_amount }}{% endif %}</small></div>
+                                <div><small>Paid ${{ entry.pay_total if entry.pay_total is defined else '' }}</small></div>
+                            </div>
+                            <div>
+                                <div><small>Your change</small></div>
+                                <div>{{ entry.user_counts.get(1000,0) }}x$10, {{ entry.user_counts.get(500,0) }}x$5, {{ entry.user_counts.get(100,0) }}x$1, {{ entry.user_counts.get(25,0) }}x25¢, {{ entry.user_counts.get(10,0) }}x10¢, {{ entry.user_counts.get(5,0) }}x5¢, {{ entry.user_counts.get(1,0) }}x1¢</div>
+                                <div><small>Total ${{ entry.user_total or 0 }}</small></div>
+                            </div>
+                            <div>
+                                {% if entry.skipped %}
+                                    <span style="color: var(--muted); font-weight:700;">Skipped</span>
+                                {% elif entry.is_correct %}
+                                    <span style="color: var(--accent); font-weight:700;">Correct</span>
+                                {% else %}
+                                    <span style="color: var(--error); font-weight:700;">Try again</span>
+                                {% endif %}
+                                <div><small>Expected ${{ entry.change_due or 0 }}</small></div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="panel" id="over-panel" style="{% if not game_over %}display:none;{% endif %}">
+            <div class="endcard">
+                <p class="title" style="margin-bottom:6px;">Change Game</p>
+                <div id="final-score" style="font-size:22px; margin-bottom:10px;">
+                    {% if game_active or game_over %}
+                        Final Score: {{ game_data.get('score',0) }} / {{ game_data.get('current_round',0) }}
+                    {% endif %}
+                </div>
+                <button type="button" id="over-reset-btn" class="btn btn-primary" style="padding:14px 20px;">Play again</button>
+            </div>
+            <div class="history" style="margin-top:18px;">
+                <h3>All attempts</h3>
+                <div class="history-list" id="history-all">
+                    {% if session.history %}
+                        {% for entry in session.history %}
+                        <div class="history-item">
+                            <div>
+                                <strong>{{ entry.item_name }}</strong>
+                                <div><small>Price ${{ entry.item_price }}{% if entry.show_tax %} + tax ${{ entry.tax_amount }}{% endif %}</small></div>
+                            </div>
+                            <div>
+                                <div><small>Your change</small></div>
+                                <div>{{ entry.user_counts.get(1000,0) }}x$10, {{ entry.user_counts.get(500,0) }}x$5, {{ entry.user_counts.get(100,0) }}x$1, {{ entry.user_counts.get(25,0) }}x25¢, {{ entry.user_counts.get(10,0) }}x10¢, {{ entry.user_counts.get(5,0) }}x5¢, {{ entry.user_counts.get(1,0) }}x1¢</div>
+                                <div><small>Total ${{ entry.user_total or 0 }}</small></div>
+                            </div>
+                            <div>
+                                {% if entry.skipped %}
+                                    <span style="color: var(--muted); font-weight:700;">Skipped</span>
+                                {% elif entry.is_correct %}
+                                    <span style="color: var(--accent); font-weight:700;">Correct</span>
+                                {% else %}
+                                    <span style="color: var(--error); font-weight:700;">Try again</span>
+                                {% endif %}
+                                <div><small>Expected ${{ entry.change_due or 0 }}</small></div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const app = document.getElementById('change-app');
+            const configPanel = document.getElementById('config-panel');
+            const playPanel = document.getElementById('play-panel');
+            const overPanel = document.getElementById('over-panel');
+            const playShell = document.getElementById('play-shell');
+            const playWrapper = playShell;
+            const configForm = document.getElementById('config-form');
+            const startBtn = document.getElementById('start-game-btn');
+            const submitBtn = document.getElementById('submit-btn');
+            const skipBtn = document.getElementById('skip-btn');
+            const restartBtn = document.getElementById('restart-btn');
+            const overResetBtn = document.getElementById('over-reset-btn');
+            const footerRestart = document.getElementById('footer-restart');
+            const fsBtn = document.getElementById('fullscreen-btn');
+            const roundChip = document.getElementById('round-chip');
+            const scoreChip = document.getElementById('score-chip');
+            const itemPriceEl = document.getElementById('item-price');
+            const taxInfo = document.getElementById('tax-info');
+            const requireHint = document.getElementById('require-hint');
+            const totalDueEl = document.getElementById('total-due');
+            const paidTotalEl = document.getElementById('paid-total');
+            const changeDueEl = document.getElementById('change-due');
+            const paymentBreakdown = document.getElementById('payment-breakdown');
+            const paymentStack = document.getElementById('payment-stack');
+            const selectedTotal = document.getElementById('selected-total');
+            const deltaEl = document.getElementById('delta');
+            const messagesBox = document.getElementById('messages-box');
+            const historyRecent = document.getElementById('history-list');
+            const historyAll = document.getElementById('history-all');
+            const finalScore = document.getElementById('final-score');
+            const itemImg = document.getElementById('item-image');
+            const answerField = document.getElementById('answer-field');
+            const debugInput = document.getElementById('debug_payload');
+            const showTaxSel = document.getElementById('show_tax');
+            const taxWrap = document.getElementById('tax_rate_wrap');
+
+            const changeDenoms = [1000, 500, 100, 25, 10, 5, 1];
+            const counts = {1000:0,500:0,100:0,25:0,10:0,5:0,1:0};
+            let maxCounts = normalizeCounts({{ game_data.get('available_counts', {'1000':5,'500':5,'100':20,'25':20,'10':20,'5':20,'1':40})|tojson }});
+            let changeDue = parseFloat('{{ "%.2f"|format(game_data.get("change_due", 0) if game_active else 0) }}') || 0;
+            const debugCounts = {{ 'true' if request.args.get('debug_counts') else 'false' }};
+            let debugBox = null;
+
+            function updateFooterRestartVisibility() {
+                if (!footerRestart) return;
+                const active = app && app.dataset.active === 'true';
+                footerRestart.style.display = active ? 'inline-flex' : 'none';
+            }
+            if (debugCounts) {
+                debugBox = document.createElement('div');
+                debugBox.style.position = 'fixed';
+                debugBox.style.bottom = '10px';
+                debugBox.style.right = '10px';
+                debugBox.style.background = 'rgba(0,0,0,0.7)';
+                debugBox.style.color = '#fff';
+                debugBox.style.padding = '8px';
+                debugBox.style.fontSize = '12px';
+                debugBox.style.maxWidth = '360px';
+                debugBox.style.zIndex = '9999';
+                debugBox.style.borderRadius = '8px';
+                document.body.appendChild(debugBox);
+            }
+
+            function normalizeCounts(obj) {
+                const mapped = {};
+                Object.keys(obj || {}).forEach(key => {
+                    mapped[parseInt(key, 10)] = obj[key];
+                });
+                return mapped;
+            }
+
+            function resetCounts() {
+                changeDenoms.forEach(den => {
+                    counts[den] = 0;
+                });
+            }
+
+            function syncAnswer() {
+                if (answerField) {
+                    answerField.value = changeDenoms.map(den => `${den}:${counts[den]}`).join(',');
+                }
+                changeDenoms.forEach(den => {
+                    const input = document.getElementById(`count-${den}`);
+                    if (input) input.value = counts[den];
+                });
+            }
+
+            function updateDebug(effCounts) {
+                if (!debugCounts || !debugBox) return;
+                const eff = effCounts || counts;
+                if (debugInput) {
+                    debugInput.value = JSON.stringify({
+                        counts,
+                        maxCounts,
+                        effective: eff,
+                        answer: answerField ? answerField.value : ''
+                    });
+                }
+                debugBox.innerText =
+                    `counts=${JSON.stringify(counts)} | max=${JSON.stringify(maxCounts)} | effective=${JSON.stringify(eff)} | answer=${answerField ? answerField.value : ''}`;
+            }
+
+            function updateTotals() {
+                const total = counts[1000]*1000 + counts[500]*500 + counts[100]*100 + counts[25]*25 + counts[10]*10 + counts[5]*5 + counts[1]*1;
+                if (selectedTotal) selectedTotal.textContent = `$${(total / 100).toFixed(2)}`;
+                if (deltaEl) {
+                    const delta = (total / 100) - changeDue;
+                    deltaEl.textContent = `${delta >= 0 ? '+' : ''}$${delta.toFixed(2)}`;
+                    deltaEl.className = Math.abs(delta) < 0.001 ? 'delta ok' : 'delta bad';
+                }
+                document.querySelectorAll('[data-count]').forEach(el => {
+                    const denom = Number(el.getAttribute('data-count'));
+                    el.textContent = counts[denom] || 0;
+                });
+                syncAnswer();
+                updateDebug();
+            }
+
+            function adjustCount(denom, delta) {
+                const max = Number(maxCounts[String(denom)] ?? maxCounts[denom] ?? 999);
+                counts[denom] = Math.max(0, Math.min(max, counts[denom] + delta));
+                const cardCount = document.querySelector(`.denom-count[data-count="${denom}"]`);
+                if (cardCount) cardCount.textContent = counts[denom];
+                updateTotals();
+            }
+
+            document.querySelectorAll('.change-card').forEach(card => {
+                const denom = Number(card.getAttribute('data-denom'));
+                const inc = card.querySelector('[data-action="inc"]');
+                const dec = card.querySelector('[data-action="dec"]');
+                if (inc) inc.addEventListener('click', () => adjustCount(denom, 1));
+                if (dec) dec.addEventListener('click', () => adjustCount(denom, -1));
+            });
+
+            const clearBtn = document.getElementById('clear-btn');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    resetCounts();
+                    document.querySelectorAll('.denom-count').forEach(el => el.textContent = '0');
+                    updateTotals();
+                });
+            }
+
+            function effectiveAnswer() {
+                const eff = {};
+                changeDenoms.forEach(den => {
+                    const max = Number(maxCounts[String(den)] ?? maxCounts[den] ?? 999);
+                    eff[den] = Math.max(0, Math.min(max, counts[den] || 0));
+                });
+                if (answerField) {
+                    answerField.value = changeDenoms.map(den => `${den}:${eff[den]}`).join(',');
+                }
+                updateDebug(eff);
+                return eff;
+            }
+
+            function renderHistory(list, target) {
+                if (!target) return;
+                target.innerHTML = '';
+                (list || []).forEach(entry => {
+                    const user = entry.user_counts || {};
+                    const div = document.createElement('div');
+                    div.className = 'history-item';
+                    div.innerHTML = `
+                        <div>
+                            <strong>${entry.item_name || ''}</strong>
+                            <div><small>Price $${entry.item_price || 0}${entry.show_tax ? ' + tax $' + (entry.tax_amount || 0) : ''}</small></div>
+                            <div><small>Paid $${entry.pay_total || 0}</small></div>
+                        </div>
+                        <div>
+                            <div><small>Your change</small></div>
+                            <div>${user[1000] || 0}x$10, ${user[500] || 0}x$5, ${user[100] || 0}x$1, ${user[25] || 0}x25¢, ${user[10] || 0}x10¢, ${user[5] || 0}x5¢, ${user[1] || 0}x1¢</div>
+                            <div><small>Total $${entry.user_total || 0}</small></div>
+                        </div>
+                        <div>
+                            ${entry.skipped ? '<span style="color: var(--muted); font-weight:700;">Skipped</span>' :
+                                entry.is_correct ? '<span style="color: var(--accent); font-weight:700;">Correct</span>' :
+                                '<span style="color: var(--error); font-weight:700;">Try again</span>'}
+                            <div><small>Expected $${entry.change_due || 0}</small></div>
+                        </div>`;
+                    target.appendChild(div);
+                });
+            }
+
+            function renderHistoryList(data) {
+                renderHistory(data.history || [], historyRecent);
+                renderHistory(data.full_history || [], historyAll);
+            }
+
+            function applyState(data) {
+                if (!data) return;
+                if (app) {
+                    app.dataset.active = data.game_active ? 'true' : 'false';
+                    app.dataset.over = data.game_over ? 'true' : 'false';
+                }
+                updateFooterRestartVisibility();
+                const totalRounds = data.total_rounds || (data.config && data.config.rounds) || 0;
+                if (roundChip) {
+                    const roundDisplay = data.game_over ? totalRounds : Math.min(data.current_round + 1, totalRounds);
+                    roundChip.textContent = `Round ${roundDisplay} / ${totalRounds}`;
+                }
+                if (scoreChip) scoreChip.textContent = `Score ${data.score}`;
+                const item = data.item || {};
+                if (itemPriceEl) itemPriceEl.textContent = `$${item.price !== undefined ? item.price : 0}`;
+                if (taxInfo) {
+                    if (item.show_tax) {
+                        taxInfo.style.display = 'block';
+                        const rate = item.tax_rate !== undefined ? item.tax_rate : 0;
+                        taxInfo.textContent = `Tax ${(rate * 100).toFixed(2)}%: $${Number(item.tax_amount || 0).toFixed(2)}`;
+                    } else taxInfo.style.display = 'none';
+                }
+                if (requireHint) {
+                    requireHint.style.display = (data.config && data.config.require_minimal_bills) ? 'block' : 'none';
+                }
+                if (totalDueEl) totalDueEl.textContent = `$${Number(item.total_due || 0).toFixed(2)}`;
+                if (paidTotalEl) paidTotalEl.textContent = `$${Number(item.pay_total || 0).toFixed(2)}`;
+                if (changeDueEl) changeDueEl.textContent = `$${Number(item.change_due || data.change_due || 0).toFixed(2)}`;
+                changeDue = Number(data.change_due ?? item.change_due ?? 0);
+                if (itemImg && item.image) itemImg.src = item.image;
+                const payCounts = item.pay_counts || {};
+                if (paymentBreakdown || paymentStack) {
+                    const parts = [];
+                    if (paymentStack) paymentStack.innerHTML = '';
+                    Object.entries(payCounts).forEach(([den, cnt]) => {
+                        const denom = Number(den);
+                        if (!cnt) return;
+                        const label = denom >= 100 ? `$${denom/100}` : `${denom}¢`;
+                        parts.push(`${cnt}x${label}`);
+                        if (paymentStack) {
+                            const chip = document.createElement('div');
+                            chip.className = 'denom-icon ' + (denom >= 1000 ? 'bill-10' : denom >= 500 ? 'bill-5' : denom >= 100 ? 'bill-1' : denom === 25 ? 'coin-25' : denom === 10 ? 'coin-10' : denom === 5 ? 'coin-5' : 'coin-1');
+                            chip.title = `${cnt}x ${label}`;
+                            for (let i = 0; i < cnt && i < 4; i++) {
+                                const clone = chip.cloneNode(true);
+                                paymentStack.appendChild(clone);
+                            }
+                        }
+                    });
+                    if (paymentBreakdown) paymentBreakdown.textContent = parts.join(', ');
+                }
+                maxCounts = normalizeCounts(data.available_change || data.available_counts || maxCounts);
+                document.querySelectorAll('[data-limit]').forEach(span => {
+                    const denom = Number(span.getAttribute('data-limit'));
+                    span.textContent = Number(maxCounts[String(denom)] ?? maxCounts[denom] ?? span.textContent);
+                });
+                resetCounts();
+                changeDenoms.forEach(den => {
+                    const countEl = document.querySelector(`.denom-count[data-count="${den}"]`);
+                    if (countEl) countEl.textContent = '0';
+                });
+                updateTotals();
+                if (messagesBox) {
+                    messagesBox.innerHTML = '';
+                    (data.messages || []).forEach(m => {
+                        const div = document.createElement('div');
+                        div.className = 'msg';
+                        if (m.includes('Correct')) div.classList.add('correct');
+                        else if (m.includes('Incorrect')) div.classList.add('incorrect');
+                        div.textContent = m;
+                        messagesBox.appendChild(div);
+                    });
+                }
+                renderHistoryList(data);
+                if (finalScore) {
+                    finalScore.textContent = `Final Score: ${data.score} / ${totalRounds}`;
+                }
+                if (data.config) {
+                    document.getElementById('rounds').value = data.config.rounds;
+                    document.getElementById('max_price').value = data.config.max_price;
+                    document.getElementById('show_tax').checked = !!data.config.show_tax;
+                    document.getElementById('require_minimal_bills').checked = !!data.config.require_minimal_bills;
+                    document.getElementById('tax_rate').value = data.config.tax_rate;
+                    if (taxWrap) taxWrap.style.display = document.getElementById('show_tax').checked ? 'block' : 'none';
+                }
+                if (configPanel) configPanel.style.display = (data.game_active || data.game_over) ? 'none' : 'block';
+                if (playPanel) playPanel.style.display = data.game_active ? 'block' : 'none';
+                if (overPanel) overPanel.style.display = data.game_over ? 'block' : 'none';
+                applyOrientationLayout();
+                updateDebug();
+            }
+
+            async function submitAjax(action, payload = {}) {
+                const body = Object.assign({ action }, payload);
+                const res = await fetch(location.pathname, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(body)
+                });
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(`Network error ${res.status}: ${text}`);
+                }
+                return res.json();
+            }
+
+            if (startBtn) {
+                startBtn.addEventListener('click', async () => {
+                    startBtn.disabled = true;
+                    try {
+                        const payload = {
+                            rounds: document.getElementById('rounds')?.value,
+                            max_price: document.getElementById('max_price')?.value,
+                            tax_rate: document.getElementById('tax_rate')?.value,
+                            show_tax: document.getElementById('show_tax')?.checked,
+                            require_minimal_bills: document.getElementById('require_minimal_bills')?.checked,
+                        };
+                        const data = await submitAjax('start_game', payload);
+                        applyState(data);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Could not start game. Please try again.');
+                    } finally {
+                        startBtn.disabled = false;
+                    }
+                });
+            }
+
+            if (submitBtn) {
+                submitBtn.addEventListener('click', async () => {
+                    if (!app || app.dataset.active !== 'true') return;
+                    effectiveAnswer();
+                    try {
+                        const data = await submitAjax('answer', {
+                            answer: answerField ? answerField.value : '',
+                            debug_payload: debugInput ? debugInput.value : ''
+                        });
+                        applyState(data);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Could not submit. Please try again.');
+                    }
+                });
+            }
+
+            if (skipBtn) {
+                skipBtn.addEventListener('click', async () => {
+                    try {
+                        const data = await submitAjax('skip_round');
+                        applyState(data);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Could not skip. Please try again.');
+                    }
+                });
+            }
+
+            if (restartBtn) {
+                restartBtn.addEventListener('click', async () => {
+                    try {
+                        const data = await submitAjax('reset_to_config');
+                        applyState(data);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Could not restart. Please try again.');
+                    }
+                });
+            }
+
+            if (overResetBtn) {
+                overResetBtn.addEventListener('click', async () => {
+                    try {
+                        const data = await submitAjax('reset_to_config');
+                        applyState(data);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Could not reset. Please try again.');
+                    }
+                });
+            }
+
+            if (footerRestart) {
+                footerRestart.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    try {
+                        const data = await submitAjax('reset_to_config');
+                        applyState(data);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Could not restart. Please try again.');
+                    }
+                });
+                updateFooterRestartVisibility();
+            }
+
+            if (fsBtn) {
+                const updateFsButton = () => {
+                    const isFs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+                    fsBtn.textContent = isFs ? 'Exit full screen' : 'Full screen';
+                };
+                fsBtn.addEventListener('click', () => {
+                    const el = document.documentElement;
+                    const isFs = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+                    try {
+                        if (isFs) {
+                            const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+                            if (exit) exit.call(document);
+                        } else {
+                            const request = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+                            if (request) request.call(el);
+                            else alert('For full screen on iPhone/iPad, use “Add to Home Screen” from Safari.');
+                        }
+                    } catch (err) {
+                        console.error(err);
+                    }
+                });
+                document.addEventListener('fullscreenchange', updateFsButton);
+                document.addEventListener('webkitfullscreenchange', updateFsButton);
+                updateFsButton();
+            }
+
+            function applyOrientationLayout() {
+                if (!playWrapper) return;
+                const portrait = window.innerHeight > window.innerWidth;
+                playWrapper.classList.toggle('portrait', portrait);
+                if (playShell) playShell.classList.toggle('portrait', portrait);
+            }
+
+            window.addEventListener('resize', applyOrientationLayout);
+
+            resetCounts();
+            updateTotals();
+            applyOrientationLayout();
+        });
+    </script>
+    <div class="footer-row">
+        <div><a class="nav-link" href="{{ url_for('index') }}">&#x2190; Back to Games</a></div>
+        <div class="footer-center"><button id="fullscreen-btn" class="btn btn-ghost" style="padding:10px 18px; font-size:16px;">Full screen</button></div>
+        <div class="footer-right"><button id="footer-restart" class="btn btn-ghost" style="padding:10px 20px; font-size:16px; {% if not game_active %}display:none;{% endif %}">Restart</button></div>
+    </div>
+    <div style="margin-top:12px; text-align:center; color: rgba(255,255,255,0.5); font-size: 12px;">
+        © Cigav Productions LLC
+    </div>
+</body>
+</html>

@@ -137,6 +137,8 @@
                 {% set thumb_src = '/static/screens/rounding.png' %}
             {% elif game_id == 'addition' %}
                 {% set thumb_src = '/static/screens/addition.png' %}
+            {% elif game_id == 'change' %}
+                {% set thumb_src = '/static/screens/change.png' %}
             {% endif %}
             <div class="game-thumb {{ 'thumb-'+game_id if game_id else 'thumb-unknown' }}">
                 {% if thumb_src %}
@@ -150,6 +152,8 @@
                         🎯 Rounding
                     {% elif game_id == 'addition' %}
                         ➕ Addition
+                    {% elif game_id == 'change' %}
+                        💰 Change
                     {% else %}
                         Play
                     {% endif %}
