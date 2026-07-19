@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
     <meta name="color-scheme" content="dark">
     <title>Math Games</title>
     <link rel="stylesheet" href="<?php echo esc_url($stylesheet_url); ?>">
-    <script src="<?php echo esc_url($script_url); ?>" defer></script>
+    <script src="<?php echo esc_url($script_url); ?>" data-nowprocket defer></script>
 </head>
 <body>
     <a class="skip-link" href="#cmg-main">Skip to the games</a>

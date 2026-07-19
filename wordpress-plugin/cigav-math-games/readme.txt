@@ -2,7 +2,7 @@
 Contributors: kesteraernoudt
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: Proprietary
 
 A standalone, no-index math game portal at /math-games/.
@@ -20,6 +20,13 @@ the server.
 3. If necessary, save Settings > Permalinks once to refresh rewrite rules.
 
 == Changelog ==
+
+= 1.1.0 =
+* Improve the portrait mobile layout and keep full-screen controls accessible.
+* Add an iPhone-compatible focus-mode fallback where native full screen is unavailable.
+* Advance automatically after completed questions.
+* Restore optimized bill and coin artwork in the money games.
+* Prevent WP Rocket from delaying the game application script.
 
 = 1.0.0 =
 * Initial WordPress conversion of the Flask math game.

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cigav Math Games
  * Description: Provides a standalone, no-index math game portal at /math-games/.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Kester Aernoudt
  * License: Proprietary
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('CMG_VERSION', '1.0.0');
+define('CMG_VERSION', '1.1.0');
 define('CMG_PLUGIN_FILE', __FILE__);
 define('CMG_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CMG_PLUGIN_URL', plugin_dir_url(__FILE__));

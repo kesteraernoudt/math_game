@@ -21,14 +21,20 @@
 }
 
 html {
+    width: 100%;
+    max-width: 100%;
     min-height: 100%;
+    overflow-x: hidden;
     background: var(--bg);
 }
 
 body {
+    width: 100%;
+    max-width: 100%;
     min-width: 320px;
     min-height: 100vh;
     margin: 0;
+    overflow-x: hidden;
     background:
         radial-gradient(circle at 12% 8%, rgba(42, 114, 190, 0.25), transparent 35%),
         radial-gradient(circle at 85% 18%, rgba(247, 185, 85, 0.16), transparent 30%),
@@ -73,6 +79,7 @@ select:focus-visible {
 
 .app-shell {
     width: min(1180px, calc(100% - 32px));
+    max-width: 100%;
     min-height: 100vh;
     margin: 0 auto;
     display: grid;
@@ -86,6 +93,13 @@ select:focus-visible {
     justify-content: space-between;
     gap: 24px;
     border-bottom: 1px solid var(--line);
+}
+
+.app-header > *,
+.app-main,
+.game-layout,
+.panel {
+    min-width: 0;
 }
 
 .brand {
@@ -133,6 +147,50 @@ select:focus-visible {
     align-items: center;
     flex-wrap: wrap;
     gap: 10px;
+}
+
+.header-actions {
+    flex: 0 0 auto;
+}
+
+html.cmg-fullscreen-fallback,
+body.cmg-fullscreen-fallback {
+    height: 100%;
+    overflow: hidden;
+}
+
+.app-shell.is-fullscreen-fallback {
+    position: fixed;
+    z-index: 2147483647;
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    height: 100dvh;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-right: max(11px, env(safe-area-inset-right));
+    padding-left: max(11px, env(safe-area-inset-left));
+    background:
+        radial-gradient(circle at 12% 8%, rgba(42, 114, 190, 0.25), transparent 35%),
+        radial-gradient(circle at 85% 18%, rgba(247, 185, 85, 0.16), transparent 30%),
+        linear-gradient(155deg, #08111f 0%, #0a1628 55%, #08101c 100%);
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.app-shell.is-fullscreen-fallback .app-header {
+    position: sticky;
+    z-index: 20;
+    top: 0;
+    padding-top: env(safe-area-inset-top);
+    background: rgba(8, 17, 31, 0.96);
+    backdrop-filter: blur(14px);
+}
+
+.app-shell.is-fullscreen-fallback .app-footer {
+    padding-bottom: env(safe-area-inset-bottom);
 }
 
 .app-main {
@@ -613,6 +671,13 @@ h1 {
     line-height: 1.55;
 }
 
+.feedback .feedback-timing {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+}
+
 .feedback-actions {
     margin-top: 14px;
 }
@@ -724,6 +789,7 @@ h1 {
 }
 
 .denomination {
+    min-width: 0;
     padding: 12px 8px;
     border: 1px solid var(--line);
     border-radius: 14px;
@@ -731,27 +797,76 @@ h1 {
 }
 
 .money-token {
-    min-height: 54px;
+    position: relative;
+    width: 100%;
+    min-height: 0;
+    aspect-ratio: 2.28 / 1;
     display: grid;
     place-items: center;
+    overflow: hidden;
     margin-bottom: 10px;
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.25);
     border-radius: 9px;
-    background: #d7e7c8;
-    color: #203523;
-    font-family: Georgia, serif;
-    font-size: 20px;
-    font-weight: 800;
+    background-color: #d7e7c8;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.3);
+}
+
+.bill-1 {
+    background-image: url("../images/bills/1.jpg");
+}
+
+.bill-5 {
+    background-image: url("../images/bills/5.jpg");
+}
+
+.bill-10 {
+    background-image: url("../images/bills/10.jpg");
+}
+
+.bill-20 {
+    background-image: url("../images/bills/20.jpg");
 }
 
 .coin-token {
-    width: 54px;
-    min-height: 54px;
+    width: min(76px, 100%);
+    aspect-ratio: 1;
     margin-right: auto;
     margin-left: auto;
     border-radius: 50%;
-    background: #d9dce2;
-    color: #333a44;
+    background-color: #d9dce2;
+}
+
+.coin-25 {
+    background-image: url("../images/coins/quarter.png");
+}
+
+.coin-10 {
+    background-image: url("../images/coins/dime.png");
+}
+
+.coin-5 {
+    background-image: url("../images/coins/nickel.png");
+}
+
+.coin-1 {
+    background-image: url("../images/coins/penny.png");
+}
+
+.money-token-label {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    padding: 2px 5px;
+    border-radius: 5px;
+    background: rgba(5, 12, 20, 0.82);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 850;
+    line-height: 1.2;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .counter {
@@ -816,13 +931,29 @@ h1 {
     margin: 18px 0;
 }
 
-.payment-display span {
-    padding: 8px 11px;
+.payment-token,
+.payment-empty {
+    padding: 8px;
     border: 1px solid var(--line);
     border-radius: 9px;
     background: rgba(255, 255, 255, 0.05);
     color: #dce6f4;
     font-weight: 750;
+}
+
+.payment-token {
+    width: 112px;
+    display: grid;
+    gap: 6px;
+    text-align: center;
+}
+
+.payment-token strong {
+    font-size: 12px;
+}
+
+.money-token-compact {
+    margin-bottom: 0;
 }
 
 .summary-score {
@@ -875,16 +1006,46 @@ h1 {
 
 @media (max-width: 680px) {
     .app-shell {
-        width: min(100% - 22px, 1180px);
+        width: min(calc(100% - 16px), 1180px);
     }
 
     .app-header {
+        gap: 8px;
         min-height: 82px;
     }
 
-    .brand small,
-    [data-fullscreen-button] {
+    .brand {
+        min-width: 0;
+        gap: 8px;
+    }
+
+    .brand-mark {
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
+        border-radius: 11px;
+        font-size: 23px;
+    }
+
+    .brand strong {
+        font-size: 16px;
+        white-space: nowrap;
+    }
+
+    .brand small {
         display: none;
+    }
+
+    .header-actions {
+        flex-wrap: nowrap;
+        gap: 6px;
+    }
+
+    .header-actions .button {
+        min-height: 38px;
+        padding: 8px 9px;
+        font-size: 12px;
+        white-space: nowrap;
     }
 
     .app-main {
@@ -915,6 +1076,14 @@ h1 {
 
     .hud-item strong {
         font-size: 16px;
+    }
+
+    .play-panel {
+        padding: 16px;
+    }
+
+    .denomination {
+        padding: 9px 7px;
     }
 
     .item-stage {

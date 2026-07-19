@@ -78,6 +78,10 @@
     });
 
     let game = null;
+    let nextRoundTimer = null;
+    let fullscreenFallbackActive = false;
+
+    const AUTO_ADVANCE_DELAY = 1200;
 
     function escapeHtml(value) {
         return String(value)
@@ -145,6 +149,10 @@
     }
 
     function render() {
+        if (nextRoundTimer) {
+            window.clearTimeout(nextRoundTimer);
+            nextRoundTimer = null;
+        }
         backButton.hidden = !game;
         if (!game) {
             renderHome();
@@ -583,10 +591,9 @@
             const count = game.selection[denom] || 0;
             const max = game.current.available[denom];
             const label = centsMode ? denominationLabel(denom) : '$' + denom;
-            const coin = centsMode && denom < 100;
             const availability = max >= 999 ? 'Available: unlimited' : 'Available: ' + max;
             return '<div class="denomination">' +
-                '<div class="money-token' + (coin ? ' coin-token' : '') + '">' + label + '</div>' +
+                renderMoneyToken(denom, centsMode, '') +
                 '<div class="counter">' +
                 '<button type="button" data-count="' + denom + '" data-delta="-1" aria-label="Remove one ' + label + '"' + (locked || count <= 0 ? ' disabled' : '') + '>−</button>' +
                 '<output aria-label="' + label + ' count">' + count + '</output>' +
@@ -596,6 +603,18 @@
                 '</div>';
         }).join('');
         return '<div class="denomination-grid' + (centsMode ? ' change-grid' : '') + '">' + cards + '</div>';
+    }
+
+    function renderMoneyToken(denom, centsMode, extraClass) {
+        const cents = centsMode ? denom : denom * 100;
+        const isCoin = cents < 100;
+        const value = isCoin ? cents : cents / 100;
+        const label = denominationLabel(cents);
+        const className = (isCoin ? 'coin-token coin-' : 'bill-token bill-') + value;
+        return '<div class="money-token ' + className + (extraClass ? ' ' + extraClass : '') + '" role="img" aria-label="' +
+            escapeHtml(label + (isCoin ? ' coin' : ' bill')) + '">' +
+            '<span class="money-token-label">' + escapeHtml(label) + '</span>' +
+            '</div>';
     }
 
     function denominationLabel(cents) {
@@ -610,10 +629,13 @@
         [2000, 1000, 500, 100].forEach(function (denom) {
             const count = counts[denom] || 0;
             if (count > 0) {
-                labels.push('<span>' + count + ' × $' + (denom / 100) + '</span>');
+                labels.push('<div class="payment-token">' +
+                    renderMoneyToken(denom, true, 'money-token-compact') +
+                    '<strong>' + count + ' × $' + (denom / 100) + '</strong>' +
+                    '</div>');
             }
         });
-        return labels.join('') || '<span>Exact payment</span>';
+        return labels.join('') || '<span class="payment-empty">Exact payment</span>';
     }
 
     function renderFeedback() {
@@ -621,12 +643,12 @@
             return '<div aria-live="polite"></div>';
         }
         const feedback = game.feedback;
-        const nextButton = feedback.needsNext ? '<div class="feedback-actions"><button class="button" type="button" data-next>' +
-            (game.round >= game.config.rounds ? 'See results' : 'Next question') + '</button></div>' : '';
+        const advanceMessage = feedback.needsNext ? '<p class="feedback-timing">' +
+            (game.round >= game.config.rounds ? 'Results loading…' : 'Next question loading…') + '</p>' : '';
         return '<div class="feedback ' + (feedback.correct ? 'correct' : 'incorrect') + '" role="status" aria-live="polite">' +
             '<strong>' + escapeHtml(feedback.title) + '</strong>' +
             '<p>' + escapeHtml(feedback.message) + '</p>' +
-            nextButton +
+            advanceMessage +
             '</div>';
     }
 
@@ -696,9 +718,8 @@
         if (skip) {
             skip.addEventListener('click', skipRound);
         }
-        const next = view.querySelector('[data-next]');
-        if (next) {
-            next.addEventListener('click', nextRound);
+        if (game.feedback && game.feedback.needsNext) {
+            nextRoundTimer = window.setTimeout(nextRound, AUTO_ADVANCE_DELAY);
         }
     }
 
@@ -963,17 +984,65 @@
     backButton.addEventListener('click', goHome);
     window.addEventListener('hashchange', route);
 
+    function nativeFullscreenElement() {
+        return document.fullscreenElement || document.webkitFullscreenElement || null;
+    }
+
+    function setFullscreenFallback(active) {
+        fullscreenFallbackActive = active;
+        app.classList.toggle('is-fullscreen-fallback', active);
+        document.documentElement.classList.toggle('cmg-fullscreen-fallback', active);
+        document.body.classList.toggle('cmg-fullscreen-fallback', active);
+        updateFullscreenButton();
+    }
+
+    function updateFullscreenButton() {
+        const active = Boolean(nativeFullscreenElement()) || fullscreenFallbackActive;
+        fullscreenButton.textContent = active ? 'Exit full screen' : 'Full screen';
+        fullscreenButton.setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
+
+    function enterFullscreen() {
+        const request = app.requestFullscreen || app.webkitRequestFullscreen;
+        if (!request) {
+            setFullscreenFallback(true);
+            return;
+        }
+
+        try {
+            const result = request.call(app);
+            if (result && typeof result.catch === 'function') {
+                result.catch(function () {
+                    setFullscreenFallback(true);
+                });
+            }
+        } catch (error) {
+            setFullscreenFallback(true);
+        }
+    }
+
+    function exitFullscreen() {
+        if (fullscreenFallbackActive) {
+            setFullscreenFallback(false);
+            return;
+        }
+        const exit = document.exitFullscreen || document.webkitExitFullscreen;
+        if (nativeFullscreenElement() && exit) {
+            exit.call(document);
+        }
+    }
+
     fullscreenButton.addEventListener('click', function () {
-        if (document.fullscreenElement) {
-            document.exitFullscreen();
-        } else if (document.documentElement.requestFullscreen) {
-            document.documentElement.requestFullscreen();
+        if (nativeFullscreenElement() || fullscreenFallbackActive) {
+            exitFullscreen();
+        } else {
+            enterFullscreen();
         }
     });
 
-    document.addEventListener('fullscreenchange', function () {
-        fullscreenButton.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen';
-    });
+    document.addEventListener('fullscreenchange', updateFullscreenButton);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+    updateFullscreenButton();
 
     route();
 }());
