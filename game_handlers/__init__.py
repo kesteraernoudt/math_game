@@ -5,6 +5,7 @@ from .rounding_handler import RoundingGameHandler
 from .addition_handler import AdditionGameHandler
 from .money_handler import MoneyGameHandler
 from .change_handler import ChangeGameHandler
+from .money_compare_handler import MoneyCompareGameHandler
 from .handler_registry import HandlerRegistry
 
 # Register handlers
@@ -12,6 +13,7 @@ HandlerRegistry.register('rounding', RoundingGameHandler)
 HandlerRegistry.register('addition', AdditionGameHandler)
 HandlerRegistry.register('money', MoneyGameHandler)
 HandlerRegistry.register('change', ChangeGameHandler)
+HandlerRegistry.register('money_compare', MoneyCompareGameHandler)
 
 __all__ = [
     'BaseGameHandler',
@@ -20,6 +22,7 @@ __all__ = [
     'AdditionGameHandler',
     'MoneyGameHandler',
     'ChangeGameHandler',
+    'MoneyCompareGameHandler',
 ]
 
 

@@ -1,3 +1,4 @@
 math_games/__pycache__/
 game_handlers/__pycache__/
 *.pyc
+instance/usage_stats.sqlite3*

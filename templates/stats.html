@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<!-- © Cigav Productions LLC -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Math Games Statistics</title>
+    <style>
+        :root { --bg:#0b1220; --panel:#0e213d; --text:#f8fafc; --muted:#cbd5e1; --line:rgba(255,255,255,.13); --blue:#63b3ff; --gold:#f7b955; --green:#4ade80; }
+        * { box-sizing:border-box; } body { margin:0; min-width:320px; font-family:Arial,sans-serif; color:var(--text); background:radial-gradient(circle at 15% 5%,#203c66,var(--bg) 56%); }
+        .page { width:min(1180px,100%); margin:0 auto; padding:clamp(16px,4vw,40px); } .top { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:24px; }
+        h1 { margin:0 0 8px; font-size:clamp(32px,5vw,48px); } h2 { margin:0; font-size:22px; } p { margin:0; color:var(--muted); line-height:1.45; }
+        .back, .range-link { color:var(--text); text-decoration:none; border:1px solid var(--line); background:rgba(255,255,255,.06); border-radius:10px; font-weight:700; } .back { display:inline-block; padding:10px 14px; }
+        .range { display:flex; gap:7px; flex-wrap:wrap; } .range-link { padding:9px 12px; color:var(--muted); font-size:14px; } .range-link.active { color:#102033; background:var(--gold); border-color:var(--gold); }
+        .cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin:20px 0 26px; } .card,.panel { border:1px solid var(--line); background:rgba(14,33,61,.92); border-radius:16px; box-shadow:0 12px 26px rgba(0,0,0,.18); }
+        .card { padding:18px; } .number { display:block; margin-top:8px; font-size:31px; font-weight:800; color:#fff; } .label { color:var(--muted); font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+        .dashboard { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(270px,.9fr); gap:18px; } .panel { padding:20px; } .panel-heading { display:flex; justify-content:space-between; gap:16px; align-items:baseline; margin-bottom:18px; } .quiet { color:var(--muted); font-size:14px; }
+        .activity-wrap { overflow-x:auto; padding:8px 0 3px; } .activity { display:flex; align-items:end; gap:3px; min-width:max-content; height:190px; border-bottom:1px solid var(--line); padding:0 3px; } .bar { width:7px; min-height:2px; border-radius:5px 5px 0 0; background:linear-gradient(#76c0ff,var(--blue)); } .bar:hover { background:var(--gold); }
+        .axis { display:flex; justify-content:space-between; color:var(--muted); font-size:12px; margin-top:8px; } .empty { padding:45px 10px; text-align:center; color:var(--muted); }
+        .trend-row, .game-row { display:flex; justify-content:space-between; gap:12px; padding:11px 0; border-bottom:1px solid rgba(255,255,255,.08); } .trend-row:last-child,.game-row:last-child { border-bottom:0; } .trend-value { font-weight:800; color:var(--gold); }
+        .section-title { margin:26px 0 12px; font-size:18px; } .recent { margin-top:18px; overflow-x:auto; } table { width:100%; min-width:650px; border-collapse:collapse; font-size:14px; } th { color:var(--muted); text-align:left; font-size:12px; text-transform:uppercase; letter-spacing:.04em; } th,td { padding:12px 10px; border-bottom:1px solid rgba(255,255,255,.09); } td:last-child,th:last-child { text-align:right; } .status-complete { color:var(--green); font-weight:700; } .status-started { color:var(--muted); }
+        .footer { text-align:center; color:rgba(255,255,255,.5); font-size:12px; margin-top:24px; }
+        @media (max-width:800px) { .cards { grid-template-columns:repeat(2,minmax(0,1fr)); } .dashboard { grid-template-columns:1fr; } } @media (max-width:460px) { .cards { grid-template-columns:1fr 1fr; } .card { padding:14px; } .number { font-size:25px; } }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <div class="top">
+            <div><a class="back" href="{{ url_for('index') }}">← Back to Games</a><h1 style="margin-top:20px;">Usage Statistics</h1><p>Anonymous, server-side activity across all games.</p></div>
+            <nav class="range" aria-label="Statistics date range">
+                {% for value, label in [('7','7 days'),('30','30 days'),('90','90 days'),('all','All time')] %}
+                <a class="range-link {{ 'active' if current_range == value }}" href="{{ url_for('stats', range=value) }}">{{ label }}</a>
+                {% endfor %}
+            </nav>
+        </div>
+
+        <section class="cards" aria-label="Lifetime totals">
+            <div class="card"><span class="label">Games started</span><span class="number">{{ dashboard.lifetime.started or 0 }}</span></div>
+            <div class="card"><span class="label">Games completed</span><span class="number">{{ dashboard.lifetime.completed or 0 }}</span></div>
+            <div class="card"><span class="label">Questions answered</span><span class="number">{{ dashboard.lifetime.questions or 0 }}</span></div>
+            <div class="card"><span class="label">Average duration</span><span class="number">{{ format_duration(dashboard.lifetime.average_duration) }}</span></div>
+        </section>
+
+        <section class="dashboard">
+            <div class="panel">
+                <div class="panel-heading"><h2>Daily activity</h2><span class="quiet">{{ dashboard.selected.started or 0 }} game{{ '' if (dashboard.selected.started or 0) == 1 else 's' }} started in this range</span></div>
+                {% if dashboard.activity %}
+                <div class="activity-wrap"><div class="activity" aria-label="Daily games started graph">
+                    {% for point in dashboard.activity %}
+                    <div class="bar" title="{{ point.date }}: {{ point.count }} game{{ '' if point.count == 1 else 's' }}" style="height:{{ [2, (point.count / activity_max * 100)|round(1)]|max }}%;"></div>
+                    {% endfor %}
+                </div></div>
+                <div class="axis"><span>{{ dashboard.activity[0].date }}</span><span>{{ dashboard.activity[-1].date }}</span></div>
+                {% else %}<div class="empty">No recorded games yet.</div>{% endif %}
+            </div>
+            <div class="panel">
+                <div class="panel-heading"><h2>Running averages</h2></div>
+                <div class="trend-row"><span>Games per day</span><strong>{{ '%.2f'|format(dashboard.averages.per_day) }}</strong></div>
+                <div class="trend-row"><span>Games per week</span><strong>{{ '%.2f'|format(dashboard.averages.per_week) }}</strong></div>
+                <div class="trend-row"><span>Total play time</span><strong>{{ format_duration(dashboard.lifetime.duration_seconds) }}</strong></div>
+                <div class="trend-row"><span>Most recent activity</span><strong>{{ dashboard.lifetime.most_recent[:16].replace('T', ' ') if dashboard.lifetime.most_recent else '—' }}</strong></div>
+            </div>
+        </section>
+
+        <section class="dashboard" style="margin-top:18px;">
+            <div class="panel"><div class="panel-heading"><h2>Weekly trends</h2></div>{% for row in dashboard.weekly %}<div class="trend-row"><span>{{ row.period }}</span><span class="trend-value">{{ row.count }} games</span></div>{% else %}<div class="empty">No activity in this range.</div>{% endfor %}</div>
+            <div class="panel"><div class="panel-heading"><h2>Monthly trends</h2></div>{% for row in dashboard.monthly %}<div class="trend-row"><span>{{ row.period }}</span><span class="trend-value">{{ row.count }} games</span></div>{% else %}<div class="empty">No activity in this range.</div>{% endfor %}</div>
+        </section>
+
+        <section class="panel" style="margin-top:18px;"><div class="panel-heading"><h2>Usage by game</h2><span class="quiet">Started / completed</span></div>{% for row in dashboard.by_game %}<div class="game-row"><span>{{ game_names.get(row.game_id, row.game_id|replace('_', ' ')|title) }}</span><strong>{{ row.started }} / {{ row.completed or 0 }}</strong></div>{% else %}<div class="empty">No activity in this range.</div>{% endfor %}</section>
+
+        <section class="panel recent"><div class="panel-heading"><h2>Recent activity</h2><span class="quiet">Most recent 20 sessions</span></div>
+            {% if dashboard.recent %}<table><thead><tr><th>Started (UTC)</th><th>Game</th><th>Status</th><th>Questions</th><th>Duration</th></tr></thead><tbody>{% for row in dashboard.recent %}<tr><td>{{ row.started_at[:16].replace('T', ' ') }}</td><td>{{ game_names.get(row.game_id, row.game_id|replace('_', ' ')|title) }}</td><td class="{{ 'status-complete' if row.completed_at else 'status-started' }}">{{ 'Completed' if row.completed_at else 'Started' }}</td><td>{{ row.questions_answered }}</td><td>{{ format_duration(row.duration_seconds) }}</td></tr>{% endfor %}</tbody></table>{% else %}<div class="empty">No sessions in this range.</div>{% endif %}
+        </section>
+        <div class="footer">© Cigav Productions LLC</div>
+    </main>
+</body>
+</html>

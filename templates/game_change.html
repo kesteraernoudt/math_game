@@ -834,7 +834,7 @@
         });
     </script>
     <div class="footer-row">
-        <div><a class="nav-link" href="{{ url_for('index') }}">&#x2190; Back to Games</a></div>
+        <div><a class="nav-link" href="{{ url_for('index') }}">&#x2190; Back to Games</a><a class="nav-link" href="{{ url_for('stats') }}" style="margin-left:8px; opacity:.7;">Statistics</a></div>
         <div class="footer-center"><button id="fullscreen-btn" class="btn btn-ghost" style="padding:10px 18px; font-size:16px;">Full screen</button></div>
         <div class="footer-right"><button id="footer-restart" class="btn btn-ghost" style="padding:10px 20px; font-size:16px; {% if not game_active %}display:none;{% endif %}">Restart</button></div>
     </div>

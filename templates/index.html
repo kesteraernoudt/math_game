@@ -154,6 +154,8 @@
                         ➕ Addition
                     {% elif game_id == 'change' %}
                         💰 Change
+                    {% elif game_id == 'money_compare' %}
+                        ⚖️ Compare Money
                     {% else %}
                         Play
                     {% endif %}
@@ -166,7 +168,7 @@
         {% endfor %}
     </div>
     <div style="margin-top:24px; text-align:center; color: rgba(255,255,255,0.5); font-size: 12px;">
-        © Cigav Productions LLC
+        <a href="{{ url_for('stats') }}" style="color:inherit;">Statistics</a> · © Cigav Productions LLC
     </div>
 </body>
 </html>

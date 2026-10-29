@@ -1,4 +1,10 @@
-# How to Add a New Game
+# Legacy Flask Reference: How to Add a New Game
+
+> **Production note:** The WordPress plugin in
+> [`wordpress-plugin/cigav-math-games`](wordpress-plugin/cigav-math-games/) is
+> the live Math Games application and the source of truth for new user-facing
+> work. This document covers the retained Flask reference only. Adding a game
+> here will not add it to the WordPress site.
 
 This guide explains how to add a new game to the math games application.
 

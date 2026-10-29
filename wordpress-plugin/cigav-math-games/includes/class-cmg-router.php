@@ -12,12 +12,13 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Registers and detects the dedicated /math-games/ route.
+ * Registers and detects the dedicated Math Games routes.
  */
 class CMG_Router
 {
     const QUERY_VAR = 'cmg_math_games';
     const ROUTE_PATTERN = '^math-games/?$';
+    const STATS_ROUTE_PATTERN = '^math-games/stats/?$';
 
     /**
      * Register WordPress hooks for the custom route.
@@ -29,10 +30,15 @@ class CMG_Router
     }
 
     /**
-     * Route /math-games/ to a private query variable.
+     * Route the game portal and its statistics page to private query values.
      */
     public function add_rewrite_rule(): void
     {
+        add_rewrite_rule(
+            self::STATS_ROUTE_PATTERN,
+            'index.php?' . self::QUERY_VAR . '=stats',
+            'top'
+        );
         add_rewrite_rule(
             self::ROUTE_PATTERN,
             'index.php?' . self::QUERY_VAR . '=1',
@@ -59,5 +65,11 @@ class CMG_Router
     public function is_math_games_request(): bool
     {
         return (string) get_query_var(self::QUERY_VAR) === '1';
+    }
+
+    /** Determine whether this request belongs to the plugin statistics page. */
+    public function is_stats_request(): bool
+    {
+        return (string) get_query_var(self::QUERY_VAR) === 'stats';
     }
 }

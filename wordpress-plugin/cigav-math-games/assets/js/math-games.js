@@ -10,6 +10,9 @@
     const backButton = app.querySelector('[data-back-button]');
     const fullscreenButton = app.querySelector('[data-fullscreen-button]');
     const homeLink = app.querySelector('[data-home-link]');
+    const installHint = app.querySelector('[data-install-hint]');
+    const usageEndpoint = app.dataset.usageEndpoint || '';
+    const previewBaseUrl = app.dataset.previewBaseUrl || '';
 
     const gameCatalog = {
         rounding: {
@@ -35,6 +38,12 @@
             description: 'Work out the exact change a customer should receive.',
             icon: '¢',
             color: '#c59cff'
+        },
+        money_compare: {
+            name: 'Money Compare',
+            description: 'Decide which stack of bills and coins is worth more or less.',
+            icon: '⚖',
+            color: '#f7b955'
         }
     };
 
@@ -80,6 +89,7 @@
     let game = null;
     let nextRoundTimer = null;
     let fullscreenFallbackActive = false;
+    let usageQueue = Promise.resolve();
 
     const AUTO_ADVANCE_DELAY = 1200;
 
@@ -110,8 +120,52 @@
         return '$' + (cents / 100).toFixed(2);
     }
 
+    function createUsageSessionId() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+        }
+        return 'cmg-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 14);
+    }
+
+    function sendUsageEvent(action, payload) {
+        if (!usageEndpoint || !window.fetch) {
+            return;
+        }
+        // Keep event order without ever waiting for analytics in the game UI.
+        usageQueue = usageQueue.catch(function () {}).then(function () {
+            return window.fetch(usageEndpoint + action, {
+                method: 'POST',
+                credentials: 'same-origin',
+                keepalive: true,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            }).catch(function () {});
+        });
+    }
+
+    function startUsageSession() {
+        game.usageSessionId = createUsageSessionId();
+        game.usageCompleted = false;
+        sendUsageEvent('start', {session_id: game.usageSessionId, game_id: game.id});
+    }
+
+    function recordResolvedQuestion() {
+        if (!game || !game.usageSessionId) {
+            return;
+        }
+        sendUsageEvent('question', {session_id: game.usageSessionId, question_number: game.round});
+    }
+
+    function completeUsageSession() {
+        if (!game || !game.usageSessionId || game.usageCompleted) {
+            return;
+        }
+        game.usageCompleted = true;
+        sendUsageEvent('complete', {session_id: game.usageSessionId});
+    }
+
     function currentRoute() {
-        const match = window.location.hash.match(/^#game\/(rounding|addition|money|change)$/);
+        const match = window.location.hash.match(/^#game\/(rounding|addition|money|change|money_compare)$/);
         return match ? match[1] : null;
     }
 
@@ -142,6 +196,7 @@
                 current: null,
                 selection: {},
                 feedback: null,
+                previousFeedback: null,
                 history: []
             };
         }
@@ -172,7 +227,7 @@
         const cards = Object.keys(gameCatalog).map(function (id) {
             const details = gameCatalog[id];
             return '<article class="game-card" style="--card-color:' + details.color + ';--card-accent:' + details.color + '">' +
-                '<div class="card-icon" aria-hidden="true">' + details.icon + '</div>' +
+                renderGamePreview(id) +
                 '<h2>' + escapeHtml(details.name) + '</h2>' +
                 '<p>' + escapeHtml(details.description) + '</p>' +
                 '<button class="button" type="button" data-open-game="' + id + '">Play game</button>' +
@@ -182,7 +237,7 @@
         view.innerHTML = '<section class="hero">' +
             '<p class="eyebrow">Choose a challenge</p>' +
             '<h1>Everyday math, made playable.</h1>' +
-            '<p class="intro">Practice rounding, addition, paying with bills, and making change. Choose a game, adjust the difficulty, and start when you are ready.</p>' +
+            '<p class="intro">Practice rounding, addition, paying with bills, making change, and comparing money values. Choose a game, adjust the difficulty, and start when you are ready.</p>' +
             '</section>' +
             '<section class="game-grid" aria-label="Available math games">' + cards + '</section>';
 
@@ -191,6 +246,27 @@
                 openGame(button.dataset.openGame);
             });
         });
+    }
+
+    function renderGamePreview(gameId) {
+        if (gameId === 'rounding' || gameId === 'addition' || gameId === 'money') {
+            return '<div class="game-preview"><img src="' + previewBaseUrl + gameId + '.png" alt="' +
+                escapeHtml(gameCatalog[gameId].name + ' game preview') + '"></div>';
+        }
+
+        if (gameId === 'change') {
+            return '<div class="game-preview game-preview-change" aria-label="Change Game preview">' +
+                '<div class="preview-item"><span aria-hidden="true">🍔</span><small>Total due</small><strong>$8.72</strong></div>' +
+                '<div class="preview-payment"><span>$10</span><b>→</b><span>28¢</span></div>' +
+                '<p>Make the exact change</p>' +
+                '</div>';
+        }
+
+        return '<div class="game-preview game-preview-compare" aria-label="Money Compare preview">' +
+            '<p>Which stack is worth more?</p><div class="preview-stacks">' +
+            '<span class="preview-stack"><i>$20</i><i>$5</i><b>Stack A</b></span>' +
+            '<span class="preview-stack"><i>$10</i><i>25¢</i><b>Stack B</b></span>' +
+            '</div></div>';
     }
 
     function headingHtml() {
@@ -223,8 +299,11 @@
                     ['challenge', 'Random wallet']
                 ], 'Controls how many bills are available.') +
                 checkField('show-tax', 'Include sales tax', 'Add tax before calculating the payment target.', false) +
-                checkField('minimal', 'Require fewest bills', 'The value and the bill combination must both be optimal.', false) +
-                checkField('allow-overpay', 'Allow overpayment', 'Accept a payment above the whole-dollar target.', false);
+                checkField('minimal', 'Require fewest bills', 'Require the smallest possible number of bills.', false) +
+                checkField('allow-overpay', 'Allow overpayment', 'Accept a payment above the whole-dollar target. This can reduce the number of bills needed.', false);
+        } else if (game.id === 'money_compare') {
+            fields = numberField('rounds', 'Questions', 8, 1, 30, 'How many money stacks to compare.') +
+                numberField('max-amount', 'Maximum stack value', 50, 1, 500, 'No stack will be worth more than this dollar amount.');
         } else {
             fields = numberField('rounds', 'Purchases', 8, 1, 30, 'How many change problems to complete.') +
                 numberField('max-price', 'Maximum item price', 50, 5, 500, 'Whole-dollar item prices stay under this amount.') +
@@ -308,6 +387,11 @@
                 allowOverpay: checked('allow-overpay'),
                 billLimitMode: value('bill-limit') || 'easy'
             };
+        } else if (game.id === 'money_compare') {
+            game.config = {
+                rounds: Math.round(clampNumber(value('rounds'), 1, 30, 8)),
+                maxAmount: Math.round(clampNumber(value('max-amount'), 1, 500, 50))
+            };
         } else {
             game.config = {
                 rounds: Math.round(clampNumber(value('rounds'), 1, 30, 8)),
@@ -323,8 +407,11 @@
         game.round = 0;
         game.history = [];
         game.feedback = null;
+        game.previousFeedback = null;
         game.selection = {};
+        game.moneyCompareNonMixedRounds = 0;
         game.current = createRound();
+        startUsageSession();
         render();
     }
 
@@ -368,7 +455,56 @@
             return createMoneyRound();
         }
 
+        if (game.id === 'money_compare') {
+            return createMoneyCompareRound();
+        }
+
         return createChangeRound();
+    }
+
+    function moneyCountsTotal(counts) {
+        return Object.keys(counts).reduce(function (total, denom) {
+            return total + Number(denom) * counts[denom];
+        }, 0);
+    }
+
+    function createMoneyCompareRound() {
+        // Intentional contrasts keep the questions teachable: value beats piece count.
+        const patterns = [
+            {left: {2000: 1}, right: {500: 3, 100: 2}, mixed: false},
+            {left: {1000: 1}, right: {100: 3}, mixed: false},
+            {left: {500: 1}, right: {100: 4}, mixed: false},
+            {left: {100: 1}, right: {25: 4, 10: 1}, mixed: false},
+            {left: {25: 4, 10: 1}, right: {100: 1}, mixed: false},
+            {left: {1000: 1, 25: 2}, right: {500: 2, 10: 2}, mixed: true},
+            {left: {500: 1, 100: 4, 25: 3}, right: {1000: 1, 10: 2}, mixed: true},
+            {left: {100: 1, 25: 3}, right: {25: 4, 10: 2}, mixed: true},
+            {left: {25: 4}, right: {25: 3, 10: 2}, mixed: false}
+        ];
+        const cap = game.config.maxAmount * 100;
+        const choices = patterns.filter(function (pattern) {
+            return Math.max(moneyCountsTotal(pattern.left), moneyCountsTotal(pattern.right)) <= cap &&
+                moneyCountsTotal(pattern.left) !== moneyCountsTotal(pattern.right);
+        });
+        const mixedChoices = choices.filter(function (pattern) { return pattern.mixed; });
+        const preferred = game.moneyCompareNonMixedRounds >= 1 && mixedChoices.length ? mixedChoices : choices;
+        const chosen = preferred.length ? preferred[randomInt(0, preferred.length - 1)] : patterns[8];
+        game.moneyCompareNonMixedRounds = chosen.mixed ? 0 : (game.moneyCompareNonMixedRounds || 0) + 1;
+        const swap = Math.random() < 0.5;
+        const left = swap ? chosen.right : chosen.left;
+        const right = swap ? chosen.left : chosen.right;
+        const comparison = Math.random() < 0.5 ? 'higher' : 'lower';
+        const leftTotal = moneyCountsTotal(left);
+        const rightTotal = moneyCountsTotal(right);
+        return {
+            left: left,
+            right: right,
+            leftTotalCents: leftTotal,
+            rightTotalCents: rightTotal,
+            comparison: comparison,
+            correctSide: comparison === 'higher' ? (leftTotal > rightTotal ? 'left' : 'right') :
+                (leftTotal < rightTotal ? 'left' : 'right')
+        };
     }
 
     function createMoneyRound() {
@@ -382,12 +518,14 @@
             item.totalDueCents = item.priceCents + taxCents;
             target = Math.ceil(item.totalDueCents / 100);
             available = generateBillLimits(target, game.config.billLimitMode);
-            const capacity = available[20] * 20 + available[10] * 10 + available[5] * 5 + available[1];
-            if (capacity >= target) {
+            if (bestMoneyCombo(target, available, game.config.allowOverpay)) {
                 break;
             }
         }
         game.selection = {20: 0, 10: 0, 5: 0, 1: 0};
+        if (!bestMoneyCombo(target, available, game.config.allowOverpay)) {
+            available = {20: Math.max(1, Math.ceil(target / 20)), 10: 2, 5: 3, 1: 4};
+        }
         item.available = available || {20: 2, 10: 2, 5: 3, 1: 5};
         return item;
     }
@@ -397,10 +535,16 @@
             return {20: 999, 10: 999, 5: 999, 1: 999};
         }
         if (mode === 'intermediate') {
-            return {20: 1, 10: 2, 5: 3, 1: 4};
+            return {20: Math.max(1, Math.ceil(target / 20)), 10: 2, 5: 3, 1: 4};
         }
+        const scale = Math.max(4, Math.ceil(target / 20));
         for (let attempt = 0; attempt < 20; attempt += 1) {
-            const limits = {20: randomInt(0, 4), 10: randomInt(0, 4), 5: randomInt(0, 4), 1: randomInt(0, 4)};
+            const limits = {
+                20: randomInt(0, scale + 2),
+                10: randomInt(0, Math.max(4, Math.ceil(scale / 2))),
+                5: randomInt(0, 5),
+                1: randomInt(0, 9)
+            };
             const capacity = limits[20] * 20 + limits[10] * 10 + limits[5] * 5 + limits[1];
             if (capacity >= target) {
                 return limits;
@@ -478,6 +622,8 @@
             problemHtml = renderAddition();
         } else if (game.id === 'money') {
             problemHtml = renderMoney();
+        } else if (game.id === 'money_compare') {
+            problemHtml = renderMoneyCompare();
         } else {
             problemHtml = renderChange();
         }
@@ -486,7 +632,8 @@
             '<div class="game-layout">' +
             '<section class="panel play-panel">' + renderHud() + problemHtml + '</section>' +
             renderHistory() +
-            '</div>';
+            '</div>' +
+            renderCurrentOptions();
 
         bindPlayEvents();
     }
@@ -501,6 +648,59 @@
             '<div class="hud-item"><span>Completed</span><strong>' + completed + '</strong></div>' +
             '</div>' +
             '<div class="progress" aria-label="' + percent + '% complete"><span style="width:' + percent + '%"></span></div>';
+    }
+
+    function renderCurrentOptions() {
+        if (!game || !game.config) {
+            return '';
+        }
+
+        const config = game.config;
+        let options;
+        if (game.id === 'rounding') {
+            options = [
+                ['Questions', config.rounds],
+                ['Largest number', config.maxNumber],
+                ['Round to nearest', config.factor],
+                ['Number line', config.showAxis ? 'Shown' : 'Hidden']
+            ];
+        } else if (game.id === 'addition') {
+            options = [
+                ['Questions', config.rounds],
+                ['Largest addend', config.maxNumber]
+            ];
+        } else if (game.id === 'money') {
+            const billModes = {easy: 'Unlimited', intermediate: 'Limited', challenge: 'Random wallet'};
+            options = [
+                ['Items', config.rounds],
+                ['Maximum price', '$' + config.maxPrice],
+                ['Sales tax', config.showTax ? formatPercent(config.taxRate) : 'Off'],
+                ['Available bills', billModes[config.billLimitMode] || config.billLimitMode],
+                ['Fewest bills required', config.requireMinimal ? 'Yes' : 'No'],
+                ['Overpayment allowed', config.allowOverpay ? 'Yes' : 'No']
+            ];
+        } else if (game.id === 'money_compare') {
+            options = [
+                ['Questions', config.rounds],
+                ['Maximum stack value', '$' + config.maxAmount]
+            ];
+        } else {
+            options = [
+                ['Purchases', config.rounds],
+                ['Maximum price', '$' + config.maxPrice],
+                ['Sales tax', config.showTax ? formatPercent(config.taxRate) : 'Off'],
+                ['Fewest bills and coins required', config.requireMinimal ? 'Yes' : 'No']
+            ];
+        }
+
+        const rows = options.map(function (option) {
+            return '<div><dt>' + escapeHtml(option[0]) + '</dt><dd>' + escapeHtml(option[1]) + '</dd></div>';
+        }).join('');
+        return '<details class="game-options"><summary>Game options</summary><dl>' + rows + '</dl></details>';
+    }
+
+    function formatPercent(rate) {
+        return (rate * 100).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1') + '%';
     }
 
     function renderRounding() {
@@ -552,6 +752,33 @@
             '<button class="button button-secondary" type="button" data-clear-counts' + disabled + '>Clear</button>' +
             '<button class="button button-quiet" type="button" data-skip' + disabled + '>Skip item</button>' +
             '</div>' + renderFeedback();
+    }
+
+    function renderMoneyCompare() {
+        const current = game.current;
+        const disabled = game.feedback && game.feedback.needsNext ? ' disabled' : '';
+        return '<div class="money-compare-question">Which stack is worth <strong>' + comparisonLabel(current.comparison) + '</strong>?</div>' +
+            '<div class="money-compare-grid">' +
+            renderMoneyCompareStack('left', 'Stack A', current.left, disabled) +
+            renderMoneyCompareStack('right', 'Stack B', current.right, disabled) +
+            '</div><p class="money-compare-hint">Count the value of the bills and coins — not only how many pieces there are.</p>' +
+            '<div class="button-row"><button class="button button-quiet" type="button" data-skip' + disabled + '>Skip question</button></div>' +
+            renderFeedback();
+    }
+
+    function renderMoneyCompareStack(side, title, counts, disabled) {
+        const denoms = [2000, 1000, 500, 100, 25, 10, 5, 1];
+        const pieces = denoms.filter(function (denom) { return counts[denom]; }).map(function (denom) {
+            const label = denominationLabel(denom);
+            const tokens = Array(counts[denom]).fill('').map(function () {
+                return renderMoneyToken(denom, true, 'compare-money-token');
+            }).join('');
+            return '<span class="compare-money-piece"><span class="compare-money-images">' + tokens + '</span>' +
+                '<span><strong>' + counts[denom] + ' ' + (denom < 100 ? 'coins' : 'bills') + '</strong></span></span>';
+        }).join('');
+        return '<button class="money-stack money-stack-' + side + '" type="button" data-compare-answer="' + side + '"' + disabled +
+            ' aria-label="Choose ' + title + '"><span class="money-stack-title">' + title + ' — tap anywhere to choose</span>' +
+            '<span class="compare-money-list">' + pieces + '</span></button>';
     }
 
     function renderChange() {
@@ -639,17 +866,56 @@
     }
 
     function renderFeedback() {
-        if (!game.feedback) {
+        if (game.feedback) {
+            return renderFeedbackCard(game.feedback, 'Current answer', true);
+        }
+        if (game.previousFeedback) {
+            return renderFeedbackCard(
+                game.previousFeedback,
+                game.previousFeedback.archiveLabel || 'Previous answer',
+                false
+            );
+        }
+        return '<div aria-live="polite"></div>';
+    }
+
+    function renderFeedbackCard(feedback, label, announce) {
+        if (!feedback) {
             return '<div aria-live="polite"></div>';
         }
-        const feedback = game.feedback;
-        const advanceMessage = feedback.needsNext ? '<p class="feedback-timing">' +
-            (game.round >= game.config.rounds ? 'Results loading…' : 'Next question loading…') + '</p>' : '';
-        return '<div class="feedback ' + (feedback.correct ? 'correct' : 'incorrect') + '" role="status" aria-live="polite">' +
+        const liveAttributes = announce ? ' role="status" aria-live="polite"' : '';
+        return '<aside class="previous-feedback ' + (feedback.correct ? 'correct' : 'incorrect') + '" aria-label="' +
+            escapeHtml(label) + '"' + liveAttributes + '>' +
+            '<div class="previous-feedback-heading">' +
+            '<span>' + escapeHtml(label) + '</span>' +
             '<strong>' + escapeHtml(feedback.title) + '</strong>' +
-            '<p>' + escapeHtml(feedback.message) + '</p>' +
-            advanceMessage +
-            '</div>';
+            '</div>' +
+            '<dl class="previous-feedback-details">' +
+            '<div><dt>Asked</dt><dd>' + escapeHtml(feedback.question || 'Current question') + '</dd></div>' +
+            '<div><dt>Your answer</dt><dd>' + escapeHtml(feedback.answer || 'No answer') + '</dd></div>' +
+            '</dl>' +
+            '<p class="previous-feedback-result">' + escapeHtml(feedback.message) + '</p>' +
+            '</aside>';
+    }
+
+    function renderPreviousFeedback() {
+        if (!game || !game.previousFeedback) {
+            return '';
+        }
+        return renderFeedbackCard(
+            game.previousFeedback,
+            game.previousFeedback.archiveLabel || 'Previous answer',
+            false
+        );
+    }
+
+    function archiveCurrentFeedback(label) {
+        if (!game || !game.feedback) {
+            return;
+        }
+        game.previousFeedback = Object.assign({}, game.feedback, {
+            archiveLabel: label || 'Previous answer'
+        });
     }
 
     function renderHistory() {
@@ -672,6 +938,12 @@
             });
         });
 
+        view.querySelectorAll('[data-compare-answer]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                submitMoneyCompare(button.dataset.compareAnswer);
+            });
+        });
+
         const additionForm = view.querySelector('[data-addition-form]');
         if (additionForm) {
             additionForm.addEventListener('submit', function (event) {
@@ -690,6 +962,7 @@
                 const max = game.current.available[denom];
                 game.selection[denom] = Math.max(0, Math.min(max, (game.selection[denom] || 0) + delta));
                 if (game.feedback && !game.feedback.needsNext) {
+                    archiveCurrentFeedback('Previous attempt');
                     game.feedback = null;
                 }
                 render();
@@ -707,6 +980,9 @@
         const clear = view.querySelector('[data-clear-counts]');
         if (clear) {
             clear.addEventListener('click', function () {
+                if (game.feedback && !game.feedback.needsNext) {
+                    archiveCurrentFeedback('Previous attempt');
+                }
                 Object.keys(game.selection).forEach(function (key) {
                     game.selection[key] = 0;
                 });
@@ -734,15 +1010,19 @@
             game.score += 1;
         }
         game.round += 1;
+        recordResolvedQuestion();
         game.history.push({
             correct: correct,
             text: current.number + ' → ' + (answer === 'down' ? current.lower : current.upper)
         });
         const destination = correctAnswer === 'down' ? current.lower : current.upper;
+        const selectedDestination = answer === 'down' ? current.lower : current.upper;
         game.feedback = {
             correct: correct,
             title: correct ? 'Correct!' : 'Not quite.',
             message: current.number + ' rounds ' + correctAnswer + ' to ' + destination + '.',
+            question: 'Round ' + current.number + ' to the nearest ' + game.config.factor + '.',
+            answer: 'Rounded ' + answer + ' to ' + selectedDestination + '.',
             needsNext: true
         };
         render();
@@ -759,6 +1039,7 @@
             game.score += 1;
         }
         game.round += 1;
+        recordResolvedQuestion();
         game.history.push({
             correct: correct,
             text: game.current.number1 + ' + ' + game.current.number2 + ' = ' + (rawAnswer || 'blank')
@@ -767,6 +1048,8 @@
             correct: correct,
             title: correct ? 'Correct!' : 'Not quite.',
             message: game.current.number1 + ' + ' + game.current.number2 + ' = ' + total + '.',
+            question: 'Find ' + game.current.number1 + ' + ' + game.current.number2 + '.',
+            answer: rawAnswer === '' ? 'No answer' : rawAnswer,
             needsNext: true
         };
         render();
@@ -784,35 +1067,34 @@
         }, 0);
     }
 
-    function bestMoneyCombo(target, available, limited) {
-        if (!limited) {
-            return {combo: greedyCounts(target, [20, 10, 5, 1]), total: target};
-        }
+    function bestMoneyCombo(target, available, allowOverpay) {
+        const max20 = Math.min(available[20], Math.ceil(target / 20));
+        const max10 = Math.min(available[10], Math.ceil(target / 10));
+        const max5 = Math.min(available[5], Math.ceil(target / 5));
         let best = null;
-        for (let c20 = 0; c20 <= available[20]; c20 += 1) {
-            for (let c10 = 0; c10 <= available[10]; c10 += 1) {
-                for (let c5 = 0; c5 <= available[5]; c5 += 1) {
-                    for (let c1 = 0; c1 <= available[1]; c1 += 1) {
-                        const combo = {20: c20, 10: c10, 5: c5, 1: c1};
-                        const total = c20 * 20 + c10 * 10 + c5 * 5 + c1;
-                        const billCount = c20 + c10 + c5 + c1;
-                        if (total < target) {
-                            continue;
-                        }
-                        if (!best || total < best.total || (total === best.total && billCount < best.billCount)) {
-                            best = {combo: combo, total: total, billCount: billCount};
-                        }
+        for (let c20 = 0; c20 <= max20; c20 += 1) {
+            for (let c10 = 0; c10 <= max10; c10 += 1) {
+                for (let c5 = 0; c5 <= max5; c5 += 1) {
+                    const subtotal = c20 * 20 + c10 * 10 + c5 * 5;
+                    const c1 = Math.max(0, target - subtotal);
+                    if ((!allowOverpay && subtotal > target) || c1 > available[1]) {
+                        continue;
+                    }
+                    const combo = {20: c20, 10: c10, 5: c5, 1: c1};
+                    const total = subtotal + c1;
+                    const billCount = c20 + c10 + c5 + c1;
+                    if (total < target || (!allowOverpay && total !== target)) {
+                        continue;
+                    }
+                    if (!best || billCount < best.billCount ||
+                        (billCount === best.billCount && total < best.total) ||
+                        (billCount === best.billCount && total === best.total && c20 > best.combo[20])) {
+                        best = {combo: combo, total: total, billCount: billCount};
                     }
                 }
             }
         }
-        return best || {combo: {20: 0, 10: 0, 5: 0, 1: 0}, total: 0};
-    }
-
-    function sameCounts(left, right, denoms) {
-        return denoms.every(function (denom) {
-            return (left[denom] || 0) === (right[denom] || 0);
-        });
+        return best;
     }
 
     function submitMoneyAnswer() {
@@ -821,27 +1103,12 @@
         }
         const item = game.current;
         const target = Math.ceil(item.totalDueCents / 100);
-        const limited = game.config.billLimitMode !== 'easy';
-        const best = bestMoneyCombo(target, item.available, limited);
+        const best = bestMoneyCombo(target, item.available, game.config.allowOverpay);
         const userTotal = selectionTotalDollars();
-        const countsMatch = sameCounts(game.selection, best.combo, [20, 10, 5, 1]);
-        const exactPossible = best.total === target;
-        let correct;
-
-        if (game.config.requireMinimal) {
-            if (game.config.allowOverpay) {
-                correct = countsMatch && userTotal === best.total;
-            } else {
-                correct = countsMatch && userTotal === (exactPossible ? target : best.total);
-            }
-        } else if (game.config.allowOverpay) {
-            correct = userTotal >= target;
-        } else {
-            correct = userTotal === (exactPossible ? target : best.total);
-        }
-        if (countsMatch && userTotal === best.total) {
-            correct = true;
-        }
+        const userBillCount = countMoneyPieces(game.selection, [20, 10, 5, 1]);
+        const valueValid = userTotal >= target && (game.config.allowOverpay || userTotal === target);
+        const minimalValid = !game.config.requireMinimal || (best && userBillCount === best.billCount);
+        const correct = valueValid && minimalValid;
 
         game.history.push({
             correct: correct,
@@ -851,21 +1118,33 @@
         if (correct) {
             game.score += 1;
             game.round += 1;
+            recordResolvedQuestion();
             game.feedback = {
                 correct: true,
                 title: 'Payment accepted!',
-                message: 'You built a valid payment of $' + userTotal + '.',
+                message: 'You built a valid payment of $' + userTotal + ' using ' + pluralize(userBillCount, 'bill') + '.',
+                question: moneyQuestionDescription(item, target),
+                answer: moneyComboDescription(game.selection, false) + ' = $' + userTotal,
                 needsNext: true
             };
         } else {
-            let hint = 'The payment needs to reach $' + (exactPossible ? target : best.total) + '.';
-            if (game.config.requireMinimal && userTotal >= target) {
-                hint = 'The value is high enough, but try using the fewest possible bills.';
+            let hint;
+            if (userTotal < target) {
+                hint = 'Your payment is $' + userTotal + '. Add $' + (target - userTotal) + ' to reach the $' + target + ' target.';
+            } else if (!game.config.allowOverpay && userTotal > target) {
+                hint = 'This game requires exactly $' + target + '. Remove $' + (userTotal - target) + ' from your payment.';
+            } else if (game.config.requireMinimal && best) {
+                hint = 'This payment uses ' + pluralize(userBillCount, 'bill') + '. The fewest possible is ' +
+                    pluralize(best.billCount, 'bill') + ' (for example, ' + moneyComboDescription(best.combo, false) + ').';
+            } else {
+                hint = 'Check the selected options below and adjust your payment.';
             }
             game.feedback = {
                 correct: false,
                 title: 'Try that item again.',
                 message: hint,
+                question: moneyQuestionDescription(item, target),
+                answer: moneyComboDescription(game.selection, false) + ' = $' + userTotal,
                 needsNext: false
             };
         }
@@ -877,9 +1156,12 @@
             return;
         }
         const total = selectionTotalCents();
+        const denoms = [1000, 500, 100, 25, 10, 5, 1];
+        const userPieceCount = countMoneyPieces(game.selection, denoms);
+        const bestPieceCount = countMoneyPieces(game.current.bestChange, denoms);
         let correct = total === game.current.changeDueCents;
         if (correct && game.config.requireMinimal) {
-            correct = sameCounts(game.selection, game.current.bestChange, [1000, 500, 100, 25, 10, 5, 1]);
+            correct = userPieceCount === bestPieceCount;
         }
 
         game.history.push({
@@ -890,25 +1172,102 @@
         if (correct) {
             game.score += 1;
             game.round += 1;
+            recordResolvedQuestion();
             game.feedback = {
                 correct: true,
                 title: 'Correct change!',
                 message: 'The customer receives ' + formatMoneyFromCents(game.current.changeDueCents) + '.',
+                question: changeQuestionDescription(game.current),
+                answer: moneyComboDescription(game.selection, true) + ' = ' + formatMoneyFromCents(total),
                 needsNext: true
             };
         } else {
-            let message = 'The exact change is ' + formatMoneyFromCents(game.current.changeDueCents) + '. Adjust the bills and coins, then try again.';
-            if (game.config.requireMinimal && total === game.current.changeDueCents) {
-                message = 'The value is correct. Now use the fewest possible bills and coins.';
+            let message;
+            if (total < game.current.changeDueCents) {
+                message = 'Your change is ' + formatMoneyFromCents(game.current.changeDueCents - total) + ' short. The exact change is ' +
+                    formatMoneyFromCents(game.current.changeDueCents) + '.';
+            } else if (total > game.current.changeDueCents) {
+                message = 'Your change is ' + formatMoneyFromCents(total - game.current.changeDueCents) + ' too high. The exact change is ' +
+                    formatMoneyFromCents(game.current.changeDueCents) + '.';
+            } else {
+                message = 'The value is correct, but it uses ' + pluralize(userPieceCount, 'piece') + '. The fewest possible is ' +
+                    pluralize(bestPieceCount, 'piece') + ': ' + moneyComboDescription(game.current.bestChange, true) + '.';
             }
             game.feedback = {
                 correct: false,
                 title: 'Try that purchase again.',
                 message: message,
+                question: changeQuestionDescription(game.current),
+                answer: moneyComboDescription(game.selection, true) + ' = ' + formatMoneyFromCents(total),
                 needsNext: false
             };
         }
         render();
+    }
+
+    function submitMoneyCompare(answer) {
+        if (game.feedback && game.feedback.needsNext) {
+            return;
+        }
+        const current = game.current;
+        const correct = answer === current.correctSide;
+        if (correct) {
+            game.score += 1;
+        }
+        game.round += 1;
+        recordResolvedQuestion();
+        game.history.push({
+            correct: correct,
+            text: 'Stack ' + (answer === 'left' ? 'A' : 'B') + ' chosen — A: ' +
+                formatMoneyFromCents(current.leftTotalCents) + ', B: ' + formatMoneyFromCents(current.rightTotalCents)
+        });
+        game.feedback = {
+            correct: correct,
+            title: correct ? 'Correct!' : 'Not quite.',
+            message: 'Stack ' + (current.correctSide === 'left' ? 'A' : 'B') + ' is worth ' + comparisonLabel(current.comparison) +
+                ': A is ' + formatMoneyFromCents(current.leftTotalCents) + ' and B is ' + formatMoneyFromCents(current.rightTotalCents) + '.',
+            question: 'Which stack is worth ' + comparisonLabel(current.comparison) + '?',
+            answer: 'Stack ' + (answer === 'left' ? 'A' : 'B'),
+            needsNext: true
+        };
+        render();
+    }
+
+    function countMoneyPieces(counts, denoms) {
+        return denoms.reduce(function (sum, denom) {
+            return sum + (counts[denom] || 0);
+        }, 0);
+    }
+
+    function pluralize(count, singular) {
+        return count + ' ' + singular + (count === 1 ? '' : 's');
+    }
+
+    function moneyComboDescription(counts, centsMode) {
+        const denoms = centsMode ? [1000, 500, 100, 25, 10, 5, 1] : [20, 10, 5, 1];
+        const parts = [];
+        denoms.forEach(function (denom) {
+            const count = counts[denom] || 0;
+            if (count > 0) {
+                parts.push(count + ' × ' + (centsMode ? denominationLabel(denom) : '$' + denom));
+            }
+        });
+        return parts.join(' + ') || 'no money';
+    }
+
+    function moneyQuestionDescription(item, target) {
+        return item.name + ': total due ' + formatMoneyFromCents(item.totalDueCents) +
+            '; build a payment of $' + target + '.';
+    }
+
+    function comparisonLabel(comparison) {
+        return comparison === 'higher' ? 'more' : 'less';
+    }
+
+    function changeQuestionDescription(item) {
+        return item.name + ': total due ' + formatMoneyFromCents(item.totalDueCents) +
+            '; customer paid ' + formatMoneyFromCents(item.payTotalCents) +
+            '; return the exact change.';
     }
 
     function escapeHistoryMoney(counts, centsMode) {
@@ -924,6 +1283,14 @@
 
     function skipRound() {
         game.history.push({correct: false, text: 'Question skipped'});
+        game.previousFeedback = {
+            correct: false,
+            title: 'Question skipped',
+            message: 'No answer was submitted for this question.',
+            question: currentQuestionDescription(),
+            answer: 'Skipped',
+            archiveLabel: game.round + 1 >= game.config.rounds ? 'Final answer' : 'Previous answer'
+        };
         game.round += 1;
         if (game.round >= game.config.rounds) {
             game.phase = 'finished';
@@ -935,6 +1302,7 @@
     }
 
     function nextRound() {
+        archiveCurrentFeedback(game.round >= game.config.rounds ? 'Final answer' : 'Previous answer');
         if (game.round >= game.config.rounds) {
             game.phase = 'finished';
         } else {
@@ -944,7 +1312,24 @@
         render();
     }
 
+    function currentQuestionDescription() {
+        if (game.id === 'rounding') {
+            return 'Round ' + game.current.number + ' to the nearest ' + game.config.factor + '.';
+        }
+        if (game.id === 'addition') {
+            return 'Find ' + game.current.number1 + ' + ' + game.current.number2 + '.';
+        }
+        if (game.id === 'money') {
+            return moneyQuestionDescription(game.current, Math.ceil(game.current.totalDueCents / 100));
+        }
+        if (game.id === 'money_compare') {
+            return 'Which stack is worth ' + comparisonLabel(game.current.comparison) + '?';
+        }
+        return changeQuestionDescription(game.current);
+    }
+
     function renderSummary() {
+        completeUsageSession();
         const total = game.config.rounds;
         const percentage = Math.round((game.score / total) * 100);
         let message = 'Nice work finishing the game.';
@@ -966,12 +1351,15 @@
             '<button class="button" type="button" data-play-again>Play again</button>' +
             '<button class="button button-secondary" type="button" data-summary-home>Choose another game</button>' +
             '</div>' +
-            '</section>';
+            '</section>' +
+            renderPreviousFeedback() +
+            renderCurrentOptions();
 
         view.querySelector('[data-play-again]').addEventListener('click', function () {
             game.phase = 'setup';
             game.config = null;
             game.history = [];
+            game.previousFeedback = null;
             render();
         });
         view.querySelector('[data-summary-home]').addEventListener('click', goHome);
@@ -988,6 +1376,19 @@
         return document.fullscreenElement || document.webkitFullscreenElement || null;
     }
 
+    function nativeFullscreenSupported() {
+        return Boolean(app.requestFullscreen || app.webkitRequestFullscreen);
+    }
+
+    function focusModeRequired() {
+        return /iPhone|iPod/.test(window.navigator.userAgent) || !nativeFullscreenSupported();
+    }
+
+    function isStandaloneMode() {
+        return Boolean(window.navigator.standalone) ||
+            (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    }
+
     function setFullscreenFallback(active) {
         fullscreenFallbackActive = active;
         app.classList.toggle('is-fullscreen-fallback', active);
@@ -997,12 +1398,23 @@
     }
 
     function updateFullscreenButton() {
+        if (isStandaloneMode()) {
+            fullscreenButton.hidden = true;
+            return;
+        }
+        fullscreenButton.hidden = false;
         const active = Boolean(nativeFullscreenElement()) || fullscreenFallbackActive;
-        fullscreenButton.textContent = active ? 'Exit full screen' : 'Full screen';
+        const focusMode = focusModeRequired();
+        fullscreenButton.textContent = active ? (focusMode ? 'Exit focus mode' : 'Exit full screen') :
+            (focusMode ? 'Focus mode' : 'Full screen');
         fullscreenButton.setAttribute('aria-pressed', active ? 'true' : 'false');
     }
 
     function enterFullscreen() {
+        if (focusModeRequired()) {
+            setFullscreenFallback(true);
+            return;
+        }
         const request = app.requestFullscreen || app.webkitRequestFullscreen;
         if (!request) {
             setFullscreenFallback(true);
@@ -1042,6 +1454,10 @@
 
     document.addEventListener('fullscreenchange', updateFullscreenButton);
     document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+    app.classList.toggle('is-standalone', isStandaloneMode());
+    if (installHint && /iPhone|iPad|iPod/.test(window.navigator.userAgent) && !isStandaloneMode()) {
+        installHint.hidden = false;
+    }
     updateFullscreenButton();
 
     route();

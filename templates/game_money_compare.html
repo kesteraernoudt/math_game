@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<!-- © Cigav Productions LLC -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ game_info.name if game_info else 'Money Compare' }}</title>
+    <style>
+        :root { --bg:#0b1220; --panel:#102442; --text:#f8fafc; --muted:#cbd5e1; --gold:#f7b955; --blue:#63b3ff; --green:#4ade80; --red:#fb7185; }
+        * { box-sizing:border-box; }
+        body { margin:0; min-width:320px; padding:clamp(12px, 3vw, 28px); font-family:Arial, sans-serif; color:var(--text); background:radial-gradient(circle at 12% 10%, #24446f, var(--bg) 62%); }
+        .shell { width:min(1100px, 100%); margin:0 auto; }
+        .nav { display:inline-flex; margin-bottom:18px; padding:10px 14px; border:1px solid rgba(255,255,255,.15); border-radius:12px; color:var(--text); background:rgba(255,255,255,.07); text-decoration:none; font-weight:700; }
+        .panel { padding:clamp(18px, 4vw, 34px); border:1px solid rgba(255,255,255,.14); border-radius:22px; background:rgba(14,33,61,.94); box-shadow:0 14px 36px rgba(0,0,0,.3); }
+        h1 { margin:0 0 8px; font-size:clamp(32px, 6vw, 52px); } h2 { margin:0; }
+        p { line-height:1.5; } .intro, .hint { color:var(--muted); }
+        .setup { max-width:720px; } .settings { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin:25px 0; }
+        label { display:grid; gap:8px; color:#e5edf8; font-weight:700; } label small { color:var(--muted); font-weight:400; }
+        input { width:100%; min-height:50px; padding:10px 12px; border:1px solid rgba(255,255,255,.25); border-radius:10px; background:#091525; color:var(--text); font:inherit; }
+        button { min-height:52px; padding:12px 18px; border:1px solid transparent; border-radius:13px; background:var(--gold); color:#241807; cursor:pointer; font:800 clamp(16px,2vw,19px)/1.2 Arial,sans-serif; } button:hover { filter:brightness(1.07); transform:translateY(-1px); }
+        .button-muted { background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.18); color:var(--text); font-size:15px; }
+        .topline { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:25px; }
+        .score { display:flex; gap:10px; flex-wrap:wrap; } .chip { padding:10px 13px; border-radius:999px; background:rgba(255,255,255,.09); font-weight:700; }
+        .question { margin:0 0 22px; padding:16px; border-radius:15px; background:rgba(247,185,85,.12); color:#fff7e3; font-size:clamp(19px,3vw,26px); font-weight:800; text-align:center; }
+        .stacks { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+        .stack { width:100%; min-width:0; overflow:hidden; padding:0; border:2px solid rgba(99,179,255,.45); border-radius:19px; background:linear-gradient(160deg,rgba(27,54,91,.96),rgba(11,26,47,.98)); color:var(--text); text-align:left; }
+        .stack:hover { border-color:var(--blue); background:linear-gradient(160deg,rgba(35,72,119,.98),rgba(12,30,54,.99)); } .stack:focus-visible { outline:4px solid #fff; outline-offset:3px; }
+        .stack.right { border-color:rgba(247,185,85,.55); } .stack-title { display:block; margin:0; padding:14px 16px; border-bottom:1px solid rgba(255,255,255,.12); font-size:21px; font-weight:800; text-align:center; }
+        .money-list { display:grid; gap:11px; padding:14px; }
+        .money-piece { display:grid; gap:9px; padding:11px; border-radius:12px; background:rgba(255,255,255,.055); }
+        .piece-images { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+        .money-visual { display:block; width:min(100%,260px); aspect-ratio:2.28/1; border-radius:7px; background:#d9e5d0; box-shadow:0 3px 8px rgba(0,0,0,.24); }
+        .money-visual.coin-visual { aspect-ratio:1; border-radius:50%; background:#c8cdd5; }
+        .money-visual.coin-25 { width:112px; } .money-visual.coin-5 { width:99px; } .money-visual.coin-1 { width:91px; } .money-visual.coin-10 { width:84px; }
+        .money-image { width:100%; height:100%; display:block; object-fit:contain; border-radius:inherit; }
+        .piece-count { display:block; color:var(--text); font-size:clamp(18px,2.5vw,23px); font-weight:800; } .piece-name { display:block; margin-top:4px; color:var(--muted); font-size:14px; }
+        .actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:20px; }
+        .message { margin-top:16px; padding:14px 16px; border-left:5px solid var(--blue); border-radius:12px; background:rgba(255,255,255,.07); } .message.correct { border-left-color:var(--green); } .message.incorrect { border-left-color:var(--red); }
+        .history { margin:23px 0 0; padding:0; list-style:none; display:grid; gap:8px; } .history li { padding:11px 13px; border-radius:10px; background:rgba(255,255,255,.055); color:var(--muted); } .history .ok { color:#bff5d4; } .history .no { color:#ffd0d8; }
+        .summary-score { margin:20px 0; color:var(--gold); font-size:clamp(52px,12vw,90px); font-weight:900; }
+        @media (max-width:650px) { .settings,.stacks { grid-template-columns:1fr; } .stack-title { text-align:center; } .money-piece { grid-template-columns:104px 1fr; } .actions button { width:100%; } }
+    </style>
+</head>
+<body>
+    {% set assets = {2000: ('/static/bills/20.jpg', '$20 bill'), 1000: ('/static/bills/10.jpg', '$10 bill'), 500: ('/static/bills/5.jpg', '$5 bill'), 100: ('/static/bills/1.jpg', '$1 bill'), 25: ('/static/coins/quarter.png', 'quarter'), 10: ('/static/coins/dime.png', 'dime'), 5: ('/static/coins/nickel.png', 'nickel'), 1: ('/static/coins/penny.png', 'penny')} %}
+    {% set denominations = [2000, 1000, 500, 100, 25, 10, 5, 1] %}
+    <main class="shell">
+        <a class="nav" href="{{ url_for('index') }}">← All games</a>
+        {% if not game_active and not game_over %}
+            <section class="panel setup">
+                <h1>Money Compare</h1>
+                <p class="intro">Look at both stacks. Which stack is worth <strong>more</strong> or <strong>less</strong>? The number of bills and coins is not always the most important part — their value is.</p>
+                <form method="post">
+                    <div class="settings">
+                        <label>Questions
+                            <input type="number" name="rounds" min="1" max="30" value="{{ game_config.get('rounds', default_config.get('rounds', 8)) }}" required>
+                            <small>How many comparisons to play.</small>
+                        </label>
+                        <label>Maximum stack value ($)
+                            <input type="number" name="max_amount" min="1" max="500" value="{{ game_config.get('max_amount', default_config.get('max_amount', 50)) }}" required>
+                            <small>No stack will be worth more than this amount. Default: $50.</small>
+                        </label>
+                    </div>
+                    <button type="submit" name="action" value="start_game">Start game</button>
+                </form>
+            </section>
+        {% elif game_over %}
+            <section class="panel setup">
+                <h1>Game complete!</h1>
+                <p class="summary-score">{{ session.games[game_id].get('score', 0) }} / {{ game_config.get('rounds', 8) }}</p>
+                <p class="intro">Nice work comparing the value of bills and coins.</p>
+                <form method="post"><button type="submit" name="action" value="restart">Play again</button></form>
+            </section>
+        {% else %}
+            {% set state = engine.get_game_state() %}
+            <section class="panel">
+                <div class="topline">
+                    <div><h1>Money Compare</h1><p class="hint">Count the value of the money, not just how many pieces you see.</p></div>
+                    <div class="score"><span class="chip">Question {{ state.current_round + 1 }} of {{ state.total_rounds }}</span><span class="chip">Score {{ state.score }}</span></div>
+                </div>
+                <p class="question">Which stack is worth {{ 'more' if state.comparison == 'higher' else 'less' }}?</p>
+                <div class="stacks">
+                    {% for side, counts, title in [('left', state.left_counts, 'Stack A'), ('right', state.right_counts, 'Stack B')] %}
+                        <form method="post"><button class="stack {{ side }}" type="submit" name="answer" value="{{ side }}" aria-label="Choose {{ title }}">
+                            <span class="stack-title">{{ title }} — tap anywhere to choose</span>
+                            <span class="money-list">
+                                {% for value in denominations if counts.get(value, 0) %}
+                                    {% set is_coin = value < 100 %}
+                                    <span class="money-piece"><span class="piece-images">{% for _ in range(counts[value]) %}<span class="money-visual {{ 'coin-visual coin-' ~ value if is_coin else '' }}"><img class="money-image" src="{{ assets[value][0] }}" alt="{{ assets[value][1] }}"></span>{% endfor %}</span><span><span class="piece-count">{{ counts[value] }} {{ 'coins' if is_coin else 'bills' }}</span></span></span>
+                                {% endfor %}
+                            </span>
+                        </button></form>
+                    {% endfor %}
+                </div>
+                <div class="actions"><form method="post"><button class="button-muted" type="submit" name="action" value="skip_round">Skip this question</button></form></div>
+                {% for message in messages %}<div class="message {{ 'correct' if 'Correct' in message else 'incorrect' if 'Incorrect' in message else '' }}">{{ message }}</div>{% endfor %}
+                {% if session.history %}<ol class="history">{% for entry in session.history[-5:]|reverse %}<li class="{{ 'ok' if entry.is_correct else 'no' }}">{{ '✓' if entry.is_correct else '×' }} {% if entry.skipped|default(false) %}Question skipped{% else %}Stack {{ 'A' if entry.selected_side == 'left' else 'B' }} was chosen. Stack {{ 'A' if entry.correct_side == 'left' else 'B' }} was correct: {{ '$%.2f'|format(entry.left_total / 100) }} vs {{ '$%.2f'|format(entry.right_total / 100) }}.{% endif %}</li>{% endfor %}</ol>{% endif %}
+            </section>
+        {% endif %}
+        <div style="margin-top:18px; text-align:center; font-size:13px;">
+            <a href="{{ url_for('stats') }}" style="color:var(--muted); text-decoration:none;">Statistics</a>
+        </div>
+    </main>
+</body>
+</html>

@@ -5,11 +5,13 @@ from .game_engine import RoundingGameEngine
 from .addition_game import AdditionGameEngine
 from .money_game import MoneyGameEngine
 from .change_game import ChangeGameEngine
+from .money_compare_game import MoneyCompareGameEngine
 
 # Register all games
 GameRegistry.register('rounding', RoundingGameEngine)
 GameRegistry.register('addition', AdditionGameEngine)
 GameRegistry.register('money', MoneyGameEngine)
 GameRegistry.register('change', ChangeGameEngine)
+GameRegistry.register('money_compare', MoneyCompareGameEngine)
 
-__all__ = ['GameRegistry', 'RoundingGameEngine', 'AdditionGameEngine', 'MoneyGameEngine', 'ChangeGameEngine']
+__all__ = ['GameRegistry', 'RoundingGameEngine', 'AdditionGameEngine', 'MoneyGameEngine', 'ChangeGameEngine', 'MoneyCompareGameEngine']

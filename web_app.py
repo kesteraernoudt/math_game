@@ -1,13 +1,89 @@
 """© Cigav Productions LLC"""
 """© Cigav Productions LLC"""
 from flask import Flask, render_template, request, session, redirect, url_for, jsonify
+from pathlib import Path
+from uuid import uuid4
 from math_games import GameRegistry
 from math_games.web_ui import WebUI
+from math_games.usage_statistics import UsageStatistics
 from game_handlers import HandlerRegistry
 from jinja2.exceptions import TemplateNotFound
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Required for session management
+
+# Usage data is intentionally separate from the signed browser session.  If the
+# database is unavailable, all helpers below quietly no-op so a game can always
+# be played.
+try:
+    usage_statistics = UsageStatistics(Path(app.instance_path) / 'usage_stats.sqlite3')
+except Exception:
+    usage_statistics = None
+
+
+def ensure_pending_usage_session(game_id: str) -> None:
+    """Seed an idempotency key while the game setup screen is displayed."""
+    session.setdefault(f'pending_usage_session_{game_id}', str(uuid4()))
+
+
+def track_game_started(game_id: str, game_state: dict) -> None:
+    """Create an anonymous usage session after a game has started successfully."""
+    pending_key = f'pending_usage_session_{game_id}'
+    usage_session_id = session.get(pending_key) or str(uuid4())
+    game_state['usage_session_id'] = usage_session_id
+    # Rotate the browser-held key for the next intentional game.  A retry made
+    # with an older session cookie still supplies the original key, so SQLite's
+    # primary key prevents it from being counted twice.
+    session[pending_key] = str(uuid4())
+    if usage_statistics is None:
+        return
+    try:
+        usage_statistics.start_session(usage_session_id, game_id)
+    except Exception:
+        pass
+
+
+def track_question_answered(game_state: dict, question_number: int) -> None:
+    """Count a resolved question once, even if a request is replayed."""
+    usage_session_id = game_state.get('usage_session_id')
+    if not usage_session_id or question_number < 1 or usage_statistics is None:
+        return
+    try:
+        usage_statistics.record_question(usage_session_id, question_number)
+    except Exception:
+        pass
+
+
+def track_game_completed(game_state: dict) -> None:
+    """Mark a game complete once without allowing analytics errors to bubble up."""
+    usage_session_id = game_state.get('usage_session_id')
+    if not usage_session_id or usage_statistics is None:
+        return
+    try:
+        usage_statistics.complete_session(usage_session_id)
+    except Exception:
+        pass
+
+
+def format_duration(seconds) -> str:
+    if seconds is None:
+        return '—'
+    total_seconds = max(0, round(seconds))
+    minutes, seconds = divmod(total_seconds, 60)
+    if minutes:
+        return f'{minutes}m {seconds:02d}s'
+    return f'{seconds}s'
+
+
+def empty_dashboard():
+    """A safe empty state when SQLite cannot be read."""
+    return {
+        'lifetime': {'started': 0, 'completed': 0, 'questions': 0, 'duration_seconds': 0,
+                     'average_duration': None, 'most_recent': None},
+        'selected': {'started': 0, 'completed': 0},
+        'activity': [], 'by_game': [], 'weekly': [], 'monthly': [], 'recent': [],
+        'averages': {'per_day': 0, 'per_week': 0},
+    }
 
 
 def get_or_create_game_state(game_id: str):
@@ -98,6 +174,28 @@ def index():
     return render_template('index.html', games=games)
 
 
+@app.route('/stats')
+def stats():
+    """Read-only, anonymous usage dashboard."""
+    range_value = request.args.get('range', '30')
+    ranges = {'7': 7, '30': 30, '90': 90, 'all': None}
+    if range_value not in ranges:
+        range_value = '30'
+    try:
+        dashboard = usage_statistics.dashboard(ranges[range_value]) if usage_statistics else empty_dashboard()
+    except Exception:
+        dashboard = empty_dashboard()
+    game_names = {
+        game_id: info['name']
+        for game_id, info in GameRegistry.list_game_info().items()
+    }
+    activity_max = max(1, max((point['count'] for point in dashboard['activity']), default=0))
+    return render_template(
+        'stats.html', dashboard=dashboard, current_range=range_value,
+        activity_max=activity_max, game_names=game_names, format_duration=format_duration,
+    )
+
+
 @app.route('/game/<game_id>', methods=['GET', 'POST'])
 def game(game_id):
     """Main game route for a specific game."""
@@ -147,6 +245,9 @@ def game(game_id):
         engine = create_game_engine(game_id, game_state)
         handler = HandlerRegistry.get_handler(game_id, engine)
 
+    if not game_state.get('active') and not game_state.get('over'):
+        ensure_pending_usage_session(game_id)
+
     if request.method == 'POST':
         if 'action' in request.form:
             if request.form['action'] == 'restart':
@@ -170,6 +271,8 @@ def game(game_id):
             
             if request.form['action'] == 'skip_round' and game_state.get('active') and handler and hasattr(handler, 'handle_skip_round'):
                 handler.handle_skip_round(game_state)
+                if game_state.get('over'):
+                    track_game_completed(game_state)
                 return redirect(url_for('game', game_id=game_id))
             
             if request.form['action'] == 'start_game':
@@ -208,6 +311,7 @@ def game(game_id):
                             session['games'][game_id]['number1'] = state.number1
                         if hasattr(state, 'number2'):
                             session['games'][game_id]['number2'] = state.number2
+                track_game_started(game_id, initial_state)
                 
                 return redirect(url_for('game', game_id=game_id))
         
@@ -273,6 +377,7 @@ def game(game_id):
                         initial_state["current_number"] = getattr(state, "current_number", None)
                         session['current_number'] = initial_state["current_number"]
                     session['games'][game_id] = initial_state
+                    track_game_started(game_id, initial_state)
                     session.modified = True
                     msgs = ui.get_messages(); ui.clear_messages()
                     return build_response(msgs, {"started": True, "config": cfg})
@@ -306,6 +411,7 @@ def game(game_id):
                         initial_state["current_number"] = getattr(state, "current_number", None)
                         session['current_number'] = initial_state["current_number"]
                     session['games'][game_id] = initial_state
+                    track_game_started(game_id, initial_state)
                     session.modified = True
                     msgs = ui.get_messages(); ui.clear_messages()
                     return build_response(msgs, {"started": True, "config": cfg})
@@ -349,12 +455,14 @@ def game(game_id):
                 session['history'].append(history_entry)
                 game_state['score'] = engine.score
                 game_state['current_round'] = engine.current_round
+                track_question_answered(game_state, engine.current_round)
                 new_state = engine.start_round()
                 if new_state is None:
                     ui.display_game_over(state)
                     game_state['active'] = False
                     game_state['over'] = True
                     session['current_number'] = None
+                    track_game_completed(game_state)
                 else:
                     if handler:
                         handler.save_state_to_session(game_state, new_state)
@@ -450,6 +558,7 @@ def game(game_id):
                     if handler and state:
                         handler.save_state_to_session(initial_state, state)
                     session['games'][game_id] = initial_state
+                    track_game_started(game_id, initial_state)
                     session.modified = True
                     msgs = ui.get_messages(); ui.clear_messages()
                     return build_money_response(msgs, {"started": True})
@@ -478,6 +587,7 @@ def game(game_id):
                     if handler and state:
                         handler.save_state_to_session(initial_state, state)
                     session['games'][game_id] = initial_state
+                    track_game_started(game_id, initial_state)
                     session.modified = True
                     msgs = ui.get_messages(); ui.clear_messages()
                     return build_money_response(msgs, {"started": True})
@@ -506,6 +616,8 @@ def game(game_id):
 
             if action == 'skip_round' and handler and game_state.get('active'):
                 handler.handle_skip_round(game_state)
+                if game_state.get('over'):
+                    track_game_completed(game_state)
                 session.modified = True
                 ui.clear_messages()
                 ui.display_result(False)
@@ -538,11 +650,13 @@ def game(game_id):
                 session['history'].append(history_entry)
                 game_state['score'] = engine.score
                 game_state['current_round'] = engine.current_round
+                track_question_answered(game_state, engine.current_round)
                 new_state = engine.start_round()
                 if new_state is None:
                     ui.display_game_over(state)
                     game_state['active'] = False
                     game_state['over'] = True
+                    track_game_completed(game_state)
                 else:
                     if handler:
                         handler.save_state_to_session(game_state, new_state)
@@ -643,6 +757,7 @@ def game(game_id):
                     if handler and state:
                         handler.save_state_to_session(initial_state, state)
                     session['games'][game_id] = initial_state
+                    track_game_started(game_id, initial_state)
                     session.modified = True
                     msgs = ui.get_messages(); ui.clear_messages()
                     return build_change_response(msgs, {"started": True})
@@ -671,6 +786,7 @@ def game(game_id):
                     if handler and state:
                         handler.save_state_to_session(initial_state, state)
                     session['games'][game_id] = initial_state
+                    track_game_started(game_id, initial_state)
                     session.modified = True
                     msgs = ui.get_messages(); ui.clear_messages()
                     return build_change_response(msgs, {"started": True})
@@ -699,6 +815,8 @@ def game(game_id):
 
             if action == 'skip_round' and handler and game_state.get('active'):
                 handler.handle_skip_round(game_state)
+                if game_state.get('over'):
+                    track_game_completed(game_state)
                 session.modified = True
                 gs = session['games'][game_id]
                 msgs = ["Item skipped. Moving to next round."]
@@ -723,11 +841,13 @@ def game(game_id):
                 game_state['score'] = engine.score
                 game_state['current_round'] = engine.current_round
                 if is_correct:
+                    track_question_answered(game_state, engine.current_round)
                     new_state = engine.start_round()
                     if new_state is None:
                         ui.display_game_over(state)
                         game_state['active'] = False
                         game_state['over'] = True
+                        track_game_completed(game_state)
                     else:
                         if handler:
                             handler.save_state_to_session(game_state, new_state)
@@ -805,6 +925,7 @@ def game(game_id):
                     # Only call display_round for games that implement the rounding UI expectations
                     if game_id == 'rounding' and state is not None and hasattr(state, 'current_number'):
                         ui.display_round(state)
+                    track_game_started(game_id, initial_state)
                     session.modified = True
                     msgs = ui.get_messages(); ui.clear_messages()
                     return build_response(msgs, {"started": True, "config": cfg})
@@ -842,6 +963,7 @@ def game(game_id):
                     # Only display_round for rounding game
                     if game_id == 'rounding' and state is not None and hasattr(state, 'current_number'):
                         ui.display_round(state)
+                    track_game_started(game_id, initial_state)
                     session.modified = True
                     msgs = ui.get_messages(); ui.clear_messages()
                     return build_response(msgs, {"started": True, "config": cfg})
@@ -867,11 +989,13 @@ def game(game_id):
                 session['history'].append(history_entry)
                 game_state['score'] = engine.score
                 game_state['current_round'] = engine.current_round
+                track_question_answered(game_state, engine.current_round)
                 new_state = engine.start_round()
                 if new_state is None:
                     ui.display_game_over(state)
                     game_state['active'] = False
                     game_state['over'] = True
+                    track_game_completed(game_state)
                 else:
                     if handler:
                         handler.save_state_to_session(game_state, new_state)
@@ -940,6 +1064,7 @@ def game(game_id):
             # Update session state
             game_state['score'] = engine.score
             game_state['current_round'] = engine.current_round
+            track_question_answered(game_state, engine.current_round)
             
             # Start next round or end game
             new_state = engine.start_round()
@@ -947,6 +1072,7 @@ def game(game_id):
                 ui.display_game_over(state)
                 game_state['active'] = False
                 game_state['over'] = True
+                track_game_completed(game_state)
             else:
                 # Save game-specific state
                 if handler:
